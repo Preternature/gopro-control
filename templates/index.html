@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoPro Controller</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>GoPro Controller</h1>
+            <div id="connection-status" class="status disconnected">
+                <span class="status-dot"></span>
+                <span class="status-text">Disconnected</span>
+            </div>
+        </header>
+
+        <main>
+            <!-- Preview Section -->
+            <section class="preview-section">
+                <h2>Live Preview</h2>
+                <div class="preview-container">
+                    <div id="preview-placeholder">
+                        <p>Preview stream will appear here</p>
+                        <button id="btn-start-preview" class="btn btn-secondary">Start Preview</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Control Panel -->
+            <section class="control-section">
+                <h2>Camera Controls</h2>
+
+                <!-- Photo Controls -->
+                <div class="control-group">
+                    <h3>Photo</h3>
+                    <div class="button-row">
+                        <button id="btn-photo" class="btn btn-primary">Take Photo</button>
+                        <button id="btn-photo-timer" class="btn btn-secondary">Timer Photo</button>
+                    </div>
+                    <div class="timer-settings">
+                        <label>Delay: <input type="number" id="photo-delay" value="5" min="1" max="30"> sec</label>
+                    </div>
+                </div>
+
+                <!-- Interval Controls -->
+                <div class="control-group">
+                    <h3>Interval Capture</h3>
+                    <div class="button-row">
+                        <button id="btn-interval-start" class="btn btn-primary">Start Interval</button>
+                        <button id="btn-interval-stop" class="btn btn-danger" disabled>Stop Interval</button>
+                    </div>
+                    <div class="interval-settings">
+                        <label>Interval: <input type="number" id="interval-seconds" value="10" min="1" max="300"> sec</label>
+                    </div>
+                </div>
+
+                <!-- Video Controls -->
+                <div class="control-group">
+                    <h3>Video</h3>
+                    <div class="button-row">
+                        <button id="btn-video-start" class="btn btn-record">Start Recording</button>
+                        <button id="btn-video-stop" class="btn btn-danger" disabled>Stop Recording</button>
+                    </div>
+                    <div id="recording-indicator" class="recording-indicator hidden">
+                        <span class="record-dot"></span> Recording...
+                    </div>
+                </div>
+
+                <!-- Settings -->
+                <div class="control-group">
+                    <h3>Settings</h3>
+                    <div class="settings-row">
+                        <label>Resolution:
+                            <select id="resolution">
+                                <option value="5.3k">5.3K</option>
+                                <option value="4k">4K</option>
+                                <option value="2.7k">2.7K</option>
+                                <option value="1080" selected>1080p</option>
+                                <option value="720">720p</option>
+                            </select>
+                        </label>
+                        <label>FPS:
+                            <select id="fps">
+                                <option value="240">240</option>
+                                <option value="120">120</option>
+                                <option value="60">60</option>
+                                <option value="30" selected>30</option>
+                                <option value="24">24</option>
+                            </select>
+                        </label>
+                        <button id="btn-apply-settings" class="btn btn-secondary">Apply</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Media Browser -->
+            <section class="media-section">
+                <h2>Media Browser</h2>
+                <div class="media-controls">
+                    <button id="btn-refresh-media" class="btn btn-secondary">Refresh</button>
+                    <button id="btn-show-downloads" class="btn btn-secondary">Show Downloads</button>
+                </div>
+                <div id="media-list" class="media-grid">
+                    <p class="placeholder">Click "Refresh" to load media from camera</p>
+                </div>
+            </section>
+
+            <!-- Downloads/Playback -->
+            <section class="playback-section hidden" id="playback-section">
+                <h2>Playback</h2>
+                <div id="playback-container">
+                    <video id="video-player" controls></video>
+                    <img id="image-viewer" class="hidden">
+                </div>
+                <div class="playback-controls">
+                    <button id="btn-close-playback" class="btn btn-secondary">Close</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Notifications -->
+        <div id="notifications"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="/static/app.js"></script>
+</body>
+</html>
