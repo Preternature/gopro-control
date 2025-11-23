@@ -7,6 +7,8 @@ import requests
 import socket
 import subprocess
 import re
+import time
+import threading
 from typing import Optional, Tuple
 
 class GoProConnection:
@@ -17,12 +19,19 @@ class GoProConnection:
     USB_IP_PATTERN = r"172\.2\d\.1\d{2}\.51"  # USB typically 172.2x.1xx.51
     GOPRO_PORT = 8080
 
+    # WiFi network names
+    GOPRO_SSID = "GP25102353"
+    HOME_SSID = "Bitterroot"
+
     def __init__(self):
-        self.gopro_ip = None
-        self.base_url = None
+        # With dual-adapter setup, GoPro is always at 10.5.5.9
+        self.gopro_ip = self.WIFI_IP
+        self.base_url = f"http://{self.WIFI_IP}:{self.GOPRO_PORT}"
         self.connected = False
-        self.connection_type = None  # 'wifi' or 'usb'
+        self.connection_type = "wifi"
         self.timeout = 5
+        self.ffmpeg_process = None
+        self.stream_active = False
 
     def discover_gopro(self) -> Tuple[Optional[str], Optional[str]]:
         """
@@ -85,37 +94,31 @@ class GoProConnection:
             return False
 
     def connect(self) -> bool:
-        """Connect to GoPro (auto-discover IP)"""
-        print("Searching for GoPro...")
-
-        ip, conn_type = self.discover_gopro()
-
-        if ip:
-            self.gopro_ip = ip
-            self.connection_type = conn_type
-            self.base_url = f"http://{ip}:{self.GOPRO_PORT}"
+        """Connect to GoPro - with dual-adapter, just check if 10.5.5.9 is reachable"""
+        # With dual-adapter setup, GoPro is always at 10.5.5.9
+        if self._test_connection(self.WIFI_IP):
+            self.gopro_ip = self.WIFI_IP
+            self.connection_type = "wifi"
+            self.base_url = f"http://{self.WIFI_IP}:{self.GOPRO_PORT}"
             self.connected = True
-            print(f"Connected to GoPro via {conn_type.upper()} at {ip}")
+            print(f"Connected to GoPro at {self.WIFI_IP}")
             return True
         else:
-            print("GoPro not found. Make sure it's connected and USB mode is set to 'GoPro Connect'")
+            print("GoPro not reachable at 10.5.5.9 - check WiFi adapter connection")
             self.connected = False
             return False
 
     def check_connection(self) -> bool:
         """Check if GoPro is reachable"""
-        # If not connected yet, try to discover
-        if not self.gopro_ip:
-            return self.connect()
-
-        # Test existing connection
-        if self._test_connection(self.gopro_ip):
+        # With dual-adapter, just test 10.5.5.9 directly
+        if self._test_connection(self.WIFI_IP):
+            self.gopro_ip = self.WIFI_IP
+            self.base_url = f"http://{self.WIFI_IP}:{self.GOPRO_PORT}"
             self.connected = True
             return True
-
-        # Connection lost, try to rediscover
-        print("Connection lost, attempting to reconnect...")
-        return self.connect()
+        else:
+            self.connected = False
+            return False
 
     def get_camera_state(self) -> Optional[dict]:
         """Get current camera state and settings"""
@@ -186,7 +189,12 @@ class GoProConnection:
 
     def start_preview_stream(self) -> bool:
         """Start the preview stream"""
+        print(f"Sending stream start command to {self.base_url}/gopro/camera/stream/start")
         result = self.send_command("/gopro/camera/stream/start")
+        if result is None:
+            print("ERROR: stream/start command returned None")
+        else:
+            print(f"Stream start result: {result}")
         return result is not None
 
     def stop_preview_stream(self) -> bool:
@@ -200,5 +208,143 @@ class GoProConnection:
             "connected": self.connected,
             "ip": self.gopro_ip,
             "type": self.connection_type,
-            "url": self.base_url
+            "url": self.base_url,
+            "stream_active": self.stream_active
         }
+
+    def is_gopro_wifi_available(self) -> bool:
+        """Check if GoPro WiFi network is visible"""
+        try:
+            result = subprocess.run(
+                ["netsh", "wlan", "show", "networks"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            return self.GOPRO_SSID in result.stdout
+        except:
+            return False
+
+    def switch_to_gopro_wifi(self) -> bool:
+        """Switch to GoPro's WiFi network"""
+        # Check if GoPro WiFi is available first
+        if not self.is_gopro_wifi_available():
+            print(f"GoPro WiFi '{self.GOPRO_SSID}' not found. Make sure GoPro is on and use the Quik app to activate WiFi.")
+            return False
+
+        try:
+            result = subprocess.run(
+                ["netsh", "wlan", "connect", f"name={self.GOPRO_SSID}"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if "completed successfully" in result.stdout:
+                time.sleep(3)  # Wait for connection
+                self.gopro_ip = self.WIFI_IP
+                self.base_url = f"http://{self.WIFI_IP}:{self.GOPRO_PORT}"
+                self.connected = True
+                self.connection_type = "wifi"
+                return True
+            return False
+        except Exception as e:
+            print(f"Error switching to GoPro WiFi: {e}")
+            return False
+
+    def switch_to_home_wifi(self) -> bool:
+        """Switch back to home WiFi network"""
+        try:
+            result = subprocess.run(
+                ["netsh", "wlan", "connect", f"name={self.HOME_SSID}"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            return "completed successfully" in result.stdout
+        except Exception as e:
+            print(f"Error switching to home WiFi: {e}")
+            return False
+
+    def start_mjpeg_stream(self, output_port=8090) -> bool:
+        """Start FFmpeg to convert GoPro UDP stream to MJPEG for browser"""
+        if self.ffmpeg_process:
+            self.stop_mjpeg_stream()
+
+        # Stop any existing stream first
+        print("Stopping any existing stream...")
+        self.stop_preview_stream()
+        time.sleep(1)
+
+        # Start the GoPro preview stream
+        print("Starting GoPro preview stream...")
+        if not self.start_preview_stream():
+            print("Failed to start GoPro preview stream")
+            return False
+        print("GoPro preview stream started")
+
+        # Wait for stream to initialize
+        time.sleep(2)
+
+        try:
+            # Create HLS output directory
+            import os
+            hls_dir = "C:\\Users\\woody\\Desktop\\gopro-control\\static\\hls"
+            os.makedirs(hls_dir, exist_ok=True)
+
+            # Clean old segments
+            for f in os.listdir(hls_dir):
+                os.remove(os.path.join(hls_dir, f))
+
+            # FFmpeg command to output HLS stream
+            cmd = [
+                "C:\\ffmpeg\\bin\\ffmpeg.exe",
+                "-fflags", "+genpts+discardcorrupt",
+                "-flags", "low_delay",
+                "-probesize", "5000000",
+                "-analyzeduration", "2000000",
+                "-i", "udp://0.0.0.0:8554?timeout=5000000&overrun_nonfatal=1",
+                "-c:v", "libx264",
+                "-preset", "ultrafast",
+                "-tune", "zerolatency",
+                "-g", "30",
+                "-an",  # No audio for faster streaming
+                "-f", "hls",
+                "-hls_time", "1",
+                "-hls_list_size", "3",
+                "-hls_flags", "delete_segments",
+                f"{hls_dir}\\stream.m3u8"
+            ]
+
+            print(f"Starting FFmpeg with command: {' '.join(cmd)}")
+
+            # Log FFmpeg output to a file for debugging
+            log_file = open(f"{hls_dir}\\ffmpeg.log", "w")
+            self.ffmpeg_process = subprocess.Popen(
+                cmd,
+                stdout=log_file,
+                stderr=log_file
+            )
+            self.ffmpeg_log = log_file
+            self.stream_active = True
+            print(f"HLS stream started at /static/hls/stream.m3u8")
+            return True
+        except FileNotFoundError:
+            print(f"ERROR: FFmpeg not found at C:\\ffmpeg\\bin\\ffmpeg.exe")
+            return False
+        except Exception as e:
+            print(f"ERROR starting MJPEG stream: {type(e).__name__}: {e}")
+            return False
+
+    def stop_mjpeg_stream(self) -> bool:
+        """Stop the FFmpeg MJPEG stream"""
+        if self.ffmpeg_process:
+            self.ffmpeg_process.terminate()
+            self.ffmpeg_process = None
+
+        if hasattr(self, 'ffmpeg_log') and self.ffmpeg_log:
+            self.ffmpeg_log.close()
+            self.ffmpeg_log = None
+
+        self.stop_preview_stream()
+        self.stream_active = False
+        return True

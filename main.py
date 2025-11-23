@@ -4,7 +4,7 @@ Web-based interface for controlling GoPro Hero 12
 """
 
 import os
-from flask import Flask, render_template, jsonify, request, send_from_directory
+from flask import Flask, render_template, jsonify, request, send_from_directory, Response
 from flask_socketio import SocketIO
 from gopro import GoProConnection, GoProCamera, GoProMedia
 
@@ -88,13 +88,62 @@ def stop_video():
 @app.route('/api/stream/start', methods=['POST'])
 def start_stream():
     """Start preview stream"""
-    result = connection.start_preview_stream()
+    result = connection.start_mjpeg_stream()
     return jsonify({"success": result})
 
 @app.route('/api/stream/stop', methods=['POST'])
 def stop_stream():
     """Stop preview stream"""
-    result = connection.stop_preview_stream()
+    result = connection.stop_mjpeg_stream()
+    return jsonify({"success": result})
+
+@app.route('/api/stream/feed')
+def stream_feed():
+    """Serve MJPEG stream directly from FFmpeg"""
+    def generate():
+        if not connection.ffmpeg_process:
+            return
+
+        while connection.stream_active and connection.ffmpeg_process:
+            # Read JPEG frame from FFmpeg stdout
+            # MJPEG frames start with FFD8 and end with FFD9
+            frame_data = b''
+            while True:
+                byte = connection.ffmpeg_process.stdout.read(1)
+                if not byte:
+                    return
+                frame_data += byte
+                if len(frame_data) >= 2 and frame_data[-2:] == b'\xff\xd9':
+                    break
+
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_data + b'\r\n')
+
+    return Response(generate(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
+
+# === WiFi Control Routes ===
+
+@app.route('/api/wifi/check', methods=['GET'])
+def check_gopro_wifi():
+    """Check if GoPro WiFi is available"""
+    available = connection.is_gopro_wifi_available()
+    return jsonify({
+        "available": available,
+        "ssid": connection.GOPRO_SSID,
+        "message": "" if available else f"GoPro WiFi '{connection.GOPRO_SSID}' not found. Make sure GoPro is on and use the Quik app to activate WiFi."
+    })
+
+@app.route('/api/wifi/gopro', methods=['POST'])
+def switch_to_gopro():
+    """Switch to GoPro WiFi network"""
+    result = connection.switch_to_gopro_wifi()
+    return jsonify({"success": result})
+
+@app.route('/api/wifi/home', methods=['POST'])
+def switch_to_home():
+    """Switch to home WiFi network"""
+    result = connection.switch_to_home_wifi()
     return jsonify({"success": result})
 
 # === Media Routes ===

@@ -17,14 +17,39 @@
         </header>
 
         <main>
+            <!-- Connection Status Section - always visible -->
+            <section class="connection-section" id="connection-section">
+                <div id="gopro-not-connected" class="not-connected-message">
+                    <h2>GoPro Not Connected</h2>
+                    <p>Make sure GoPro is on and WiFi is enabled via Quik app</p>
+                    <button id="btn-retry-connection" class="btn btn-primary">Retry Connection</button>
+                </div>
+            </section>
+
+            <!-- Main content - hidden until connected -->
+            <div id="main-content" style="display: none;">
+
+            <!-- WiFi Control -->
+            <section class="wifi-section">
+                <div class="button-row">
+                    <button id="btn-wifi-gopro" class="btn btn-primary">Connect to GoPro</button>
+                    <button id="btn-wifi-home" class="btn btn-secondary">Back to Home WiFi</button>
+                </div>
+            </section>
+
             <!-- Preview Section -->
             <section class="preview-section">
                 <h2>Live Preview</h2>
-                <div class="preview-container">
+                <div class="preview-container" id="preview-container">
+                    <video id="preview-video" autoplay muted playsinline style="display:none; max-width:100%;"></video>
                     <div id="preview-placeholder">
                         <p>Preview stream will appear here</p>
                         <button id="btn-start-preview" class="btn btn-secondary">Start Preview</button>
+                        <button id="btn-stop-preview" class="btn btn-danger" style="display:none;">Stop Preview</button>
                     </div>
+                </div>
+                <div class="preview-controls">
+                    <button id="btn-photo-click" class="btn btn-primary btn-large">Take Photo</button>
                 </div>
             </section>
 
@@ -118,6 +143,8 @@
                     <button id="btn-close-playback" class="btn btn-secondary">Close</button>
                 </div>
             </section>
+
+            </div><!-- end main-content -->
         </main>
 
         <!-- Notifications -->
@@ -125,6 +152,7 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="/static/app.js"></script>
 </body>
 </html>

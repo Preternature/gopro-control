@@ -12,9 +12,19 @@ const elements = {
     connectionStatus: document.getElementById('connection-status'),
     statusText: document.querySelector('.status-text'),
 
+    // Connection UI
+    mainContent: document.getElementById('main-content'),
+    goProNotConnected: document.getElementById('gopro-not-connected'),
+    btnRetryConnection: document.getElementById('btn-retry-connection'),
+
+    // WiFi controls
+    btnWifiGopro: document.getElementById('btn-wifi-gopro'),
+    btnWifiHome: document.getElementById('btn-wifi-home'),
+
     // Photo controls
     btnPhoto: document.getElementById('btn-photo'),
     btnPhotoTimer: document.getElementById('btn-photo-timer'),
+    btnPhotoClick: document.getElementById('btn-photo-click'),
     photoDelay: document.getElementById('photo-delay'),
 
     // Interval controls
@@ -34,6 +44,9 @@ const elements = {
 
     // Preview
     btnStartPreview: document.getElementById('btn-start-preview'),
+    btnStopPreview: document.getElementById('btn-stop-preview'),
+    previewVideo: document.getElementById('preview-video'),
+    previewPlaceholder: document.getElementById('preview-placeholder'),
 
     // Media
     btnRefreshMedia: document.getElementById('btn-refresh-media'),
@@ -97,10 +110,18 @@ function updateConnectionStatus(connected, connType = null, ip = null) {
             currentGoProIP = ip;
         }
         elements.statusText.textContent = statusText;
+
+        // Show main content, hide not-connected message
+        elements.mainContent.style.display = 'block';
+        elements.goProNotConnected.style.display = 'none';
     } else {
         elements.connectionStatus.classList.remove('connected');
         elements.connectionStatus.classList.add('disconnected');
         elements.statusText.textContent = 'Disconnected';
+
+        // Hide main content, show not-connected message
+        elements.mainContent.style.display = 'none';
+        elements.goProNotConnected.style.display = 'block';
     }
 }
 
@@ -297,15 +318,149 @@ async function showDownloads() {
     }
 }
 
+// WiFi Functions
+async function switchToGoPro() {
+    // Check if GoPro WiFi is available first
+    const check = await apiCall('/wifi/check');
+    if (!check?.available) {
+        showNotification(check?.message || 'GoPro WiFi not found. Use the Quik app to activate it.', 'error');
+        return;
+    }
+
+    showNotification('Switching to GoPro WiFi... Page will reconnect automatically.', 'info');
+    elements.btnWifiGopro.disabled = true;
+
+    // Fire and forget - the network will drop during switch
+    fetch('/api/wifi/gopro', { method: 'POST' }).catch(() => {});
+
+    // Wait for network to settle, then try to reconnect
+    setTimeout(async () => {
+        let retries = 10;
+        while (retries > 0) {
+            try {
+                const response = await fetch('/api/status');
+                if (response.ok) {
+                    showNotification('Connected to GoPro WiFi', 'success');
+                    elements.btnWifiGopro.disabled = false;
+                    return;
+                }
+            } catch (e) {
+                // Still reconnecting
+            }
+            await new Promise(r => setTimeout(r, 1000));
+            retries--;
+        }
+        showNotification('Failed to reconnect - refresh page', 'error');
+        elements.btnWifiGopro.disabled = false;
+    }, 3000);
+}
+
+async function switchToHome() {
+    showNotification('Switching to home WiFi... Page will reconnect automatically.', 'info');
+    elements.btnWifiHome.disabled = true;
+
+    // Fire and forget
+    fetch('/api/wifi/home', { method: 'POST' }).catch(() => {});
+
+    // Wait for network to settle, then try to reconnect
+    setTimeout(async () => {
+        let retries = 10;
+        while (retries > 0) {
+            try {
+                const response = await fetch('/api/status');
+                if (response.ok) {
+                    showNotification('Connected to home WiFi', 'success');
+                    elements.btnWifiHome.disabled = false;
+                    return;
+                }
+            } catch (e) {
+                // Still reconnecting
+            }
+            await new Promise(r => setTimeout(r, 1000));
+            retries--;
+        }
+        showNotification('Failed to reconnect - refresh page', 'error');
+        elements.btnWifiHome.disabled = false;
+    }, 3000);
+}
+
 // Preview Functions
+let hlsPlayer = null;
+
 async function startPreview() {
+    showNotification('Starting preview stream...', 'info');
     const result = await apiCall('/stream/start', 'POST');
 
     if (result?.success) {
-        showNotification('Preview stream started', 'success');
-        // Note: Actual video preview requires additional setup (VLC/ffplay)
+        showNotification('Preview stream started - waiting for HLS segments...', 'info');
+
+        const video = elements.previewVideo;
+
+        // Wait a moment for FFmpeg to create initial segments
+        setTimeout(() => {
+            if (Hls.isSupported()) {
+                hlsPlayer = new Hls({
+                    liveSyncDurationCount: 1,
+                    liveMaxLatencyDurationCount: 3,
+                    lowLatencyMode: true
+                });
+                hlsPlayer.loadSource('/static/hls/stream.m3u8');
+                hlsPlayer.attachMedia(video);
+                hlsPlayer.on(Hls.Events.MANIFEST_PARSED, () => {
+                    video.play();
+                    showNotification('Preview stream playing', 'success');
+                });
+                hlsPlayer.on(Hls.Events.ERROR, (event, data) => {
+                    if (data.fatal) {
+                        showNotification('Stream error - retrying...', 'error');
+                        hlsPlayer.loadSource('/static/hls/stream.m3u8');
+                    }
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Safari native HLS support
+                video.src = '/static/hls/stream.m3u8';
+                video.play();
+            }
+
+            video.style.display = 'block';
+            elements.previewPlaceholder.style.display = 'none';
+            elements.btnStartPreview.style.display = 'none';
+            elements.btnStopPreview.style.display = 'inline-block';
+        }, 3000);
     } else {
         showNotification('Failed to start preview', 'error');
+    }
+}
+
+async function stopPreview() {
+    const result = await apiCall('/stream/stop', 'POST');
+
+    if (result?.success) {
+        showNotification('Preview stopped', 'info');
+
+        if (hlsPlayer) {
+            hlsPlayer.destroy();
+            hlsPlayer = null;
+        }
+
+        elements.previewVideo.src = '';
+        elements.previewVideo.style.display = 'none';
+        elements.previewPlaceholder.style.display = 'block';
+        elements.btnStartPreview.style.display = 'inline-block';
+        elements.btnStopPreview.style.display = 'none';
+    }
+}
+
+// Quick photo from preview
+async function takePhotoClick() {
+    elements.btnPhotoClick.disabled = true;
+    const result = await apiCall('/photo', 'POST');
+    elements.btnPhotoClick.disabled = false;
+
+    if (result?.success) {
+        showNotification('📸 Photo captured!', 'success');
+    } else {
+        showNotification('Failed to take photo', 'error');
     }
 }
 
@@ -341,15 +496,34 @@ setInterval(async () => {
     }
 }, 5000);
 
+// Retry connection
+async function retryConnection() {
+    showNotification('Checking GoPro connection...', 'info');
+    const result = await apiCall('/status');
+    if (result) {
+        updateConnectionStatus(result.connected, result.type, result.ip);
+        if (result.connected) {
+            showNotification('GoPro connected!', 'success');
+        } else {
+            showNotification('GoPro not found. Make sure it\'s on and WiFi is enabled.', 'error');
+        }
+    }
+}
+
 // Event Listeners
+elements.btnRetryConnection.addEventListener('click', retryConnection);
+elements.btnWifiGopro.addEventListener('click', switchToGoPro);
+elements.btnWifiHome.addEventListener('click', switchToHome);
 elements.btnPhoto.addEventListener('click', takePhoto);
 elements.btnPhotoTimer.addEventListener('click', takeTimerPhoto);
+elements.btnPhotoClick.addEventListener('click', takePhotoClick);
 elements.btnIntervalStart.addEventListener('click', startInterval);
 elements.btnIntervalStop.addEventListener('click', stopInterval);
 elements.btnVideoStart.addEventListener('click', startVideo);
 elements.btnVideoStop.addEventListener('click', stopVideo);
 elements.btnApplySettings.addEventListener('click', applySettings);
 elements.btnStartPreview.addEventListener('click', startPreview);
+elements.btnStopPreview.addEventListener('click', stopPreview);
 elements.btnRefreshMedia.addEventListener('click', loadMediaList);
 elements.btnShowDownloads.addEventListener('click', showDownloads);
 elements.btnClosePlayback.addEventListener('click', closePlayback);
