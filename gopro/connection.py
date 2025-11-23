@@ -9,7 +9,9 @@ import subprocess
 import re
 import time
 import threading
+import asyncio
 from typing import Optional, Tuple
+from bleak import BleakScanner, BleakClient
 
 class GoProConnection:
     """Manages connection to GoPro camera over WiFi or USB"""
@@ -23,6 +25,11 @@ class GoProConnection:
     GOPRO_SSID = "GP25102353"
     HOME_SSID = "Bitterroot"
 
+    # BLE UUIDs for GoPro
+    BLE_WIFI_AP_SSID_UUID = "b5f90002-aa8d-11e3-9046-0002a5d5c51b"
+    BLE_WIFI_AP_PASSWORD_UUID = "b5f90003-aa8d-11e3-9046-0002a5d5c51b"
+    BLE_COMMAND_UUID = "b5f90072-aa8d-11e3-9046-0002a5d5c51b"
+
     def __init__(self):
         # With dual-adapter setup, GoPro is always at 10.5.5.9
         self.gopro_ip = self.WIFI_IP
@@ -32,6 +39,67 @@ class GoProConnection:
         self.timeout = 5
         self.ffmpeg_process = None
         self.stream_active = False
+        self.ble_device = None
+
+    async def _scan_for_gopro_ble(self):
+        """Scan for GoPro BLE device"""
+        print("Scanning for GoPro BLE devices...")
+        devices = await BleakScanner.discover(timeout=5.0)
+        for device in devices:
+            if device.name and "GoPro" in device.name:
+                print(f"Found GoPro: {device.name} ({device.address})")
+                return device
+        return None
+
+    async def _enable_wifi_via_ble(self, device_address: str) -> bool:
+        """Send BLE command to enable WiFi AP mode"""
+        try:
+            async with BleakClient(device_address) as client:
+                if not client.is_connected:
+                    print("Failed to connect to GoPro via BLE")
+                    return False
+
+                print("Connected to GoPro via BLE")
+
+                # Command to enable WiFi AP: 0x03 0x17 0x01 0x01
+                # 0x03 = length, 0x17 = AP control, 0x01 = enable, 0x01 = AP mode
+                enable_wifi_cmd = bytes([0x03, 0x17, 0x01, 0x01])
+
+                await client.write_gatt_char(self.BLE_COMMAND_UUID, enable_wifi_cmd)
+                print("Sent WiFi enable command")
+
+                # Wait for WiFi to start
+                await asyncio.sleep(3)
+                return True
+
+        except Exception as e:
+            print(f"BLE error: {e}")
+            return False
+
+    def wake_gopro_wifi(self) -> dict:
+        """Use BLE to wake up GoPro's WiFi - call this from sync code"""
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            # Scan for GoPro
+            device = loop.run_until_complete(self._scan_for_gopro_ble())
+            if not device:
+                return {"success": False, "error": "GoPro not found via Bluetooth. Make sure it's on and nearby."}
+
+            self.ble_device = device
+
+            # Enable WiFi
+            result = loop.run_until_complete(self._enable_wifi_via_ble(device.address))
+            loop.close()
+
+            if result:
+                return {"success": True, "message": f"WiFi enabled on {device.name}"}
+            else:
+                return {"success": False, "error": "Failed to enable WiFi via BLE"}
+
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
     def discover_gopro(self) -> Tuple[Optional[str], Optional[str]]:
         """
@@ -295,7 +363,7 @@ class GoProConnection:
             for f in os.listdir(hls_dir):
                 os.remove(os.path.join(hls_dir, f))
 
-            # FFmpeg command to output HLS stream
+            # FFmpeg command to output HLS stream - optimized for low latency
             cmd = [
                 "C:\\ffmpeg\\bin\\ffmpeg.exe",
                 "-fflags", "+genpts+discardcorrupt",
@@ -306,12 +374,13 @@ class GoProConnection:
                 "-c:v", "libx264",
                 "-preset", "ultrafast",
                 "-tune", "zerolatency",
-                "-g", "30",
+                "-g", "15",  # Keyframe every 0.5s for faster seeking
+                "-sc_threshold", "0",
                 "-an",  # No audio for faster streaming
                 "-f", "hls",
-                "-hls_time", "1",
+                "-hls_time", "0.5",  # 0.5 second segments instead of 1
                 "-hls_list_size", "3",
-                "-hls_flags", "delete_segments",
+                "-hls_flags", "delete_segments+split_by_time",
                 f"{hls_dir}\\stream.m3u8"
             ]
 

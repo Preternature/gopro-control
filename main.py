@@ -83,6 +83,14 @@ def stop_video():
     result = camera.stop_video()
     return jsonify({"success": result})
 
+# === BLE WiFi Wake ===
+
+@app.route('/api/ble/wake-wifi', methods=['POST'])
+def wake_wifi_ble():
+    """Use Bluetooth to wake up GoPro's WiFi"""
+    result = connection.wake_gopro_wifi()
+    return jsonify(result)
+
 # === Preview Stream Routes ===
 
 @app.route('/api/stream/start', methods=['POST'])

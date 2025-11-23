@@ -16,6 +16,7 @@ const elements = {
     mainContent: document.getElementById('main-content'),
     goProNotConnected: document.getElementById('gopro-not-connected'),
     btnRetryConnection: document.getElementById('btn-retry-connection'),
+    btnWakeWifi: document.getElementById('btn-wake-wifi'),
 
     // WiFi controls
     btnWifiGopro: document.getElementById('btn-wifi-gopro'),
@@ -401,8 +402,11 @@ async function startPreview() {
             if (Hls.isSupported()) {
                 hlsPlayer = new Hls({
                     liveSyncDurationCount: 1,
-                    liveMaxLatencyDurationCount: 3,
-                    lowLatencyMode: true
+                    liveMaxLatencyDurationCount: 2,
+                    lowLatencyMode: true,
+                    backBufferLength: 0,
+                    maxBufferLength: 1,
+                    maxMaxBufferLength: 2
                 });
                 hlsPlayer.loadSource('/static/hls/stream.m3u8');
                 hlsPlayer.attachMedia(video);
@@ -496,6 +500,24 @@ setInterval(async () => {
     }
 }, 5000);
 
+// Wake WiFi via Bluetooth
+async function wakeWifiBle() {
+    elements.btnWakeWifi.disabled = true;
+    showNotification('Scanning for GoPro via Bluetooth...', 'info');
+
+    const result = await apiCall('/ble/wake-wifi', 'POST');
+
+    if (result?.success) {
+        showNotification(result.message || 'WiFi enabled! Connecting...', 'success');
+        // Wait a moment then check connection
+        setTimeout(retryConnection, 2000);
+    } else {
+        showNotification(result?.error || 'Failed to wake WiFi', 'error');
+    }
+
+    elements.btnWakeWifi.disabled = false;
+}
+
 // Retry connection
 async function retryConnection() {
     showNotification('Checking GoPro connection...', 'info');
@@ -512,6 +534,7 @@ async function retryConnection() {
 
 // Event Listeners
 elements.btnRetryConnection.addEventListener('click', retryConnection);
+elements.btnWakeWifi.addEventListener('click', wakeWifiBle);
 elements.btnWifiGopro.addEventListener('click', switchToGoPro);
 elements.btnWifiHome.addEventListener('click', switchToHome);
 elements.btnPhoto.addEventListener('click', takePhoto);

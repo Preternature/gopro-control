@@ -4,17 +4,18 @@ Control your GoPro Hero 12 Black over WiFi with a web-based interface.
 
 ## Features
 
-- Live preview streaming
-- Photo capture (single, timer, interval)
+- Live preview streaming (HLS video)
+- Bluetooth WiFi wake (no phone app needed!)
+- Photo capture (single, timer, interval, click-to-shoot)
 - Video recording (start/stop)
-- Media browser and replay
-- Camera settings control
+- Dual WiFi adapter support (stay on home internet while controlling GoPro)
 
 ## Hardware Requirements
 
 - GoPro Hero 12 Black
-- USB WiFi adapter (for controlling GoPro while on Ethernet)
-- USB-C cable (optional, for charging while shooting)
+- USB WiFi adapter (TP-Link TL-WN725N or similar 2.4GHz adapter)
+- PC with Bluetooth (for WiFi wake feature)
+- FFmpeg installed at `C:\ffmpeg\bin\`
 
 ## Setup
 
@@ -32,14 +33,40 @@ Control your GoPro Hero 12 Black over WiFi with a web-based interface.
 
 4. Open browser to `http://localhost:5000`
 
-## GoPro WiFi Connection
+## GoPro Connection Setup
 
-Since you want to stay on Ethernet for internet while controlling the GoPro:
+### One-Time Bluetooth Pairing
 
-1. **On GoPro**: Swipe down → Preferences → Wireless Connections → Connect Device → GoPro Quik App
-2. Note the WiFi name and password displayed
-3. **On PC**: Connect your USB WiFi adapter to the GoPro's network
-4. Windows will route: Ethernet → Internet, WiFi → GoPro (10.5.5.9)
+This lets you wake the GoPro's WiFi without using the phone app:
+
+1. **On GoPro**: Preferences → Connections → Connect Device → GoPro App
+2. **On Windows**: Settings → Bluetooth & devices → Add device → Bluetooth
+3. Select "GoPro XXXX" and pair it
+
+### Dual WiFi Adapter Setup
+
+This keeps you on home internet while controlling the GoPro:
+
+1. **Primary adapter** (Intel/built-in): Stays on home WiFi (e.g., "Bitterroot")
+2. **USB adapter** (TP-Link): Connects to GoPro WiFi (e.g., "GP25102353")
+
+Configure the USB adapter to NOT auto-connect to your home network:
+```cmd
+netsh wlan set profileparameter name="YourHomeSSID" interface="Wi-Fi 2" connectionmode=manual
+```
+
+### GoPro WiFi Credentials
+
+- **SSID**: GP25102353 (shown on GoPro screen)
+- **Password**: XHM-r5z-rvP
+
+### Usage Flow
+
+1. Turn on GoPro
+2. Click "Wake WiFi (Bluetooth)" button - this enables GoPro's WiFi via Bluetooth
+3. App auto-connects and you're ready to go!
+
+Or manually: Use phone app once to enable WiFi, then the web interface takes over.
 
 ## Project Structure
 
