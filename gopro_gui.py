@@ -26,6 +26,7 @@ class GoProGUI:
         self.connected = False
         self.streaming = False
         self.vlc_process = None
+        self.shutdown = False  # Flag to stop background threads
 
         self.setup_ui()
 
@@ -43,8 +44,7 @@ class GoProGUI:
         # Connection buttons
         conn_frame = ttk.Frame(main_frame)
         conn_frame.pack(fill=tk.X, pady=5)
-        ttk.Button(conn_frame, text="Full Connect (BLE + WiFi)", command=self.full_connect).pack(side=tk.LEFT, padx=5)
-        ttk.Button(conn_frame, text="Retry Connection", command=self.check_connection).pack(side=tk.LEFT, padx=5)
+        ttk.Button(conn_frame, text="Full Connect", command=self.full_connect).pack(side=tk.LEFT, padx=5)
 
         # Preview
         preview_frame = ttk.Frame(main_frame)
@@ -63,49 +63,60 @@ class GoProGUI:
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def full_connect(self):
-        """BLE wake + WiFi connect"""
+        """BLE wake + WiFi connect with auto-retry"""
         def connect():
-            try:
-                self.root.after(0, lambda: self.status_label.config(text="Scanning for GoPro (BLE)...", foreground="orange"))
+            while not self.shutdown:
+                try:
+                    self.root.after(0, lambda: self.status_label.config(text="Scanning for GoPro (BLE)...", foreground="orange"))
 
-                # BLE scan
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                devices = loop.run_until_complete(BleakScanner.discover(timeout=5.0))
+                    # BLE scan
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    devices = loop.run_until_complete(BleakScanner.discover(timeout=5.0))
 
-                gopro = None
-                for d in devices:
-                    if d.name and "GoPro" in d.name:
-                        gopro = d
-                        break
+                    gopro = None
+                    for d in devices:
+                        if d.name and "GoPro" in d.name:
+                            gopro = d
+                            break
 
-                if gopro:
-                    self.root.after(0, lambda: self.status_label.config(text=f"Found {gopro.name}, waking WiFi...", foreground="orange"))
+                    if gopro:
+                        self.root.after(0, lambda: self.status_label.config(text=f"Found {gopro.name}, waking WiFi...", foreground="orange"))
 
-                    # Send WiFi enable
-                    async def wake():
-                        client = BleakClient(gopro.address)
-                        await client.connect()
-                        cmd = bytes([0x03, 0x17, 0x01, 0x01])
-                        await client.write_gatt_char(self.BLE_COMMAND_UUID, cmd, response=False)
-                        await asyncio.sleep(2)
-                        await client.disconnect()
+                        # Send WiFi enable
+                        async def wake():
+                            client = BleakClient(gopro.address)
+                            await client.connect()
+                            cmd = bytes([0x03, 0x17, 0x01, 0x01])
+                            await client.write_gatt_char(self.BLE_COMMAND_UUID, cmd, response=False)
+                            await asyncio.sleep(2)
+                            await client.disconnect()
 
-                    loop.run_until_complete(wake())
-                    loop.close()
-                    time.sleep(1)
+                        loop.run_until_complete(wake())
+                        loop.close()
+                        time.sleep(1)
 
-                # Connect WiFi adapter to GoPro
-                self.root.after(0, lambda: self.status_label.config(text="Connecting WiFi adapter...", foreground="orange"))
-                subprocess.run(["netsh", "wlan", "connect", f"name={self.GOPRO_SSID}", f"interface={self.WIFI_INTERFACE}"],
-                              capture_output=True, timeout=10)
-                time.sleep(3)
+                    # Connect WiFi adapter to GoPro
+                    self.root.after(0, lambda: self.status_label.config(text="Connecting WiFi adapter...", foreground="orange"))
+                    subprocess.run(["netsh", "wlan", "connect", f"name={self.GOPRO_SSID}", f"interface={self.WIFI_INTERFACE}"],
+                                  capture_output=True, timeout=10)
+                    time.sleep(3)
 
-                # Check connection
-                self.check_connection()
+                    # Check connection
+                    try:
+                        response = requests.get(f"http://{self.GOPRO_IP}:{self.GOPRO_PORT}/gopro/camera/state", timeout=3)
+                        if response.status_code == 200:
+                            self.connected = True
+                            self.root.after(0, lambda: self.status_label.config(text="Connected", foreground="green"))
+                            break  # Success, exit loop
+                        else:
+                            raise Exception("Connection check failed")
+                    except:
+                        raise Exception("Connection check failed")
 
-            except Exception as e:
-                self.root.after(0, lambda: self.status_label.config(text=f"Error: {str(e)[:30]}", foreground="red"))
+                except Exception as e:
+                    self.root.after(0, lambda: self.status_label.config(text=f"Retrying connection...", foreground="orange"))
+                    time.sleep(2)  # Wait before retry
 
         threading.Thread(target=connect, daemon=True).start()
 
@@ -136,6 +147,9 @@ class GoProGUI:
         if not self.connected:
             messagebox.showwarning("Not Connected", "GoPro not connected")
             return
+
+        # Stop any existing preview first
+        self.stop_preview()
 
         def start():
             self.send_command("/gopro/camera/stream/start")
@@ -183,6 +197,7 @@ class GoProGUI:
             messagebox.showerror("Error", "Failed to stop video")
 
     def on_close(self):
+        self.shutdown = True  # Stop background threads
         self.streaming = False
         if self.vlc_process:
             self.vlc_process.terminate()
