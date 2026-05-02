@@ -1,0 +1,102 @@
+ffmpeg version 8.0.1-essentials_build-www.gyan.dev Copyright (c) 2000-2025 the FFmpeg developers
+  built with gcc 15.2.0 (Rev8, Built by MSYS2 project)
+  configuration: --enable-gpl --enable-version3 --enable-static --disable-w32threads --disable-autodetect --enable-fontconfig --enable-iconv --enable-gnutls --enable-libxml2 --enable-gmp --enable-bzlib --enable-lzma --enable-zlib --enable-libsrt --enable-libssh --enable-libzmq --enable-avisynth --enable-sdl2 --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxvid --enable-libaom --enable-libopenjpeg --enable-libvpx --enable-mediafoundation --enable-libass --enable-libfreetype --enable-libfribidi --enable-libharfbuzz --enable-libvidstab --enable-libvmaf --enable-libzimg --enable-amf --enable-cuda-llvm --enable-cuvid --enable-dxva2 --enable-d3d11va --enable-d3d12va --enable-ffnvcodec --enable-libvpl --enable-nvdec --enable-nvenc --enable-vaapi --enable-openal --enable-libgme --enable-libopenmpt --enable-libopencore-amrwb --enable-libmp3lame --enable-libtheora --enable-libvo-amrwbenc --enable-libgsm --enable-libopencore-amrnb --enable-libopus --enable-libspeex --enable-libvorbis --enable-librubberband
+  libavutil      60.  8.100 / 60.  8.100
+  libavcodec     62. 11.100 / 62. 11.100
+  libavformat    62.  3.100 / 62.  3.100
+  libavdevice    62.  1.100 / 62.  1.100
+  libavfilter    11.  4.100 / 11.  4.100
+  libswscale      9.  1.100 /  9.  1.100
+  libswresample   6.  1.100 /  6.  1.100
+[h264 @ 000001c035a80c80] non-existing PPS 0 referenced
+    Last message repeated 1 times
+[h264 @ 000001c035a80c80] no frame!
+[mpegts @ 000001c035a17480] Could not find codec parameters for stream 2 (Unknown: none ([128][0][0][0] / 0x0080)): unknown codec
+Consider increasing the value for the 'analyzeduration' (2000000) and 'probesize' (5000000) options
+[mpegts @ 000001c035a17480] Could not find codec parameters for stream 3 (Audio: ac3 ([129][0][0][0] / 0x0081), 0 channels, fltp): unspecified sample rate
+Consider increasing the value for the 'analyzeduration' (2000000) and 'probesize' (5000000) options
+Input #0, mpegts, from 'udp://0.0.0.0:8555?timeout=5000000&overrun_nonfatal=1':
+  Duration: N/A, start: 1.634967, bitrate: N/A
+  Program 1 
+  Stream #0:0[0x1011]: Video: h264 (High) ([27][0][0][0] / 0x001B), yuvj420p(pc, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 29.97 fps, 29.97 tbr, 90k tbn, start 1.634967
+  Stream #0:1[0x1100]: Audio: aac (LC) ([15][0][0][0] / 0x000F), 48000 Hz, stereo, fltp, 191 kb/s, start 1.706667
+  Stream #0:2[0x200]: Unknown: none ([128][0][0][0] / 0x0080)
+  Stream #0:3[0x201]: Audio: ac3 ([129][0][0][0] / 0x0081), 0 channels, fltp
+Stream mapping:
+  Stream #0:0 -> #0:0 (h264 (native) -> h264 (libx264))
+Press [q] to stop, [?] for help
+[libx264 @ 000001c036ae83c0] using SAR=1/1
+[libx264 @ 000001c036ae83c0] using cpu capabilities: MMX2 SSE2Fast SSSE3 SSE4.2 AVX FMA3 BMI2 AVX2
+[libx264 @ 000001c036ae83c0] profile Constrained Baseline, level 4.0, 4:2:0, 8-bit
+[libx264 @ 000001c036ae83c0] 264 - core 165 r3223 0480cb0 - H.264/MPEG-4 AVC codec - Copyleft 2003-2025 - http://www.videolan.org/x264.html - options: cabac=0 ref=1 deblock=0:0:0 analyse=0:0 me=dia subme=0 psy=1 psy_rd=1.00:0.00 mixed_ref=0 me_range=16 chroma_me=1 trellis=0 8x8dct=0 cqm=0 deadzone=21,11 fast_pskip=1 chroma_qp_offset=0 threads=17 lookahead_threads=16 sliced_threads=1 slices=17 nr=0 decimate=1 interlaced=0 bluray_compat=0 constrained_intra=0 bframes=0 weightp=0 keyint=15 keyint_min=1 scenecut=0 intra_refresh=0 rc=crf mbtree=0 crf=23.0 qcomp=0.60 qpmin=0 qpmax=69 qpstep=4 ip_ratio=1.40 aq=0
+Output #0, hls, to 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8':
+  Metadata:
+    encoder         : Lavf62.3.100
+  Stream #0:0: Video: h264, yuvj420p(pc, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], q=2-31, 29.97 fps, 90k tbn
+    Metadata:
+      encoder         : Lavc62.11.100 libx264
+    Side data:
+      cpb: bitrate max/min/avg: 0/0/0 buffer size: 0 vbv_delay: N/A
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream0.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream1.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream2.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream3.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=   74 fps=0.0 q=22.0 size=N/A time=00:00:02.46 bitrate=N/A dup=1 drop=0 speed=4.81x elapsed=0:00:00.51    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream4.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=   90 fps= 86 q=21.0 size=N/A time=00:00:03.00 bitrate=N/A dup=1 drop=0 speed=2.88x elapsed=0:00:01.04    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream5.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream6.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  106 fps= 68 q=19.0 size=N/A time=00:00:03.53 bitrate=N/A dup=1 drop=0 speed=2.25x elapsed=0:00:01.57    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream7.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  121 fps= 58 q=19.0 size=N/A time=00:00:04.03 bitrate=N/A dup=1 drop=0 speed=1.94x elapsed=0:00:02.08    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream8.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  137 fps= 53 q=23.0 size=N/A time=00:00:04.57 bitrate=N/A dup=1 drop=0 speed=1.76x elapsed=0:00:02.60    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream9.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  152 fps= 49 q=25.0 size=N/A time=00:00:05.07 bitrate=N/A dup=1 drop=0 speed=1.63x elapsed=0:00:03.10    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream10.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  167 fps= 46 q=23.0 size=N/A time=00:00:05.57 bitrate=N/A dup=1 drop=0 speed=1.54x elapsed=0:00:03.62    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream11.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  183 fps= 44 q=23.0 size=N/A time=00:00:06.10 bitrate=N/A dup=1 drop=0 speed=1.48x elapsed=0:00:04.13    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream12.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  199 fps= 43 q=22.0 size=N/A time=00:00:06.63 bitrate=N/A dup=1 drop=0 speed=1.42x elapsed=0:00:04.66    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream13.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  214 fps= 41 q=23.0 size=N/A time=00:00:07.14 bitrate=N/A dup=1 drop=0 speed=1.38x elapsed=0:00:05.17    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream14.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  229 fps= 40 q=22.0 size=N/A time=00:00:07.64 bitrate=N/A dup=1 drop=0 speed=1.34x elapsed=0:00:05.69    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream15.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  245 fps= 39 q=22.0 size=N/A time=00:00:08.17 bitrate=N/A dup=1 drop=0 speed=1.32x elapsed=0:00:06.21    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream16.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  261 fps= 39 q=22.0 size=N/A time=00:00:08.70 bitrate=N/A dup=1 drop=0 speed=1.29x elapsed=0:00:06.72    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream17.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  276 fps= 38 q=21.0 size=N/A time=00:00:09.20 bitrate=N/A dup=1 drop=0 speed=1.27x elapsed=0:00:07.24    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream18.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  291 fps= 38 q=21.0 size=N/A time=00:00:09.70 bitrate=N/A dup=1 drop=0 speed=1.25x elapsed=0:00:07.75    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream19.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  307 fps= 37 q=21.0 size=N/A time=00:00:10.24 bitrate=N/A dup=1 drop=0 speed=1.24x elapsed=0:00:08.26    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream20.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  322 fps= 37 q=23.0 size=N/A time=00:00:10.74 bitrate=N/A dup=1 drop=0 speed=1.22x elapsed=0:00:08.77    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream21.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  338 fps= 36 q=22.0 size=N/A time=00:00:11.24 bitrate=N/A dup=1 drop=0 speed=1.21x elapsed=0:00:09.29    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream22.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  353 fps= 36 q=22.0 size=N/A time=00:00:11.77 bitrate=N/A dup=1 drop=0 speed= 1.2x elapsed=0:00:09.82    [hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream23.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+frame=  369 fps= 36 q=21.0 size=N/A time=00:00:12.27 bitrate=N/A dup=1 drop=0 speed=1.19x elapsed=0:00:10.33    frame=  374 fps= 34 q=22.0 size=N/A time=00:00:12.47 bitrate=N/A dup=1 drop=0 speed=1.15x elapsed=0:00:10.85    frame=  374 fps= 33 q=22.0 size=N/A time=00:00:12.47 bitrate=N/A dup=1 drop=0 speed= 1.1x elapsed=0:00:11.36    frame=  374 fps= 31 q=22.0 size=N/A time=00:00:12.47 bitrate=N/A dup=1 drop=0 speed=1.05x elapsed=0:00:11.87    frame=  374 fps= 30 q=22.0 size=N/A time=00:00:12.47 bitrate=N/A dup=1 drop=0 speed=1.01x elapsed=0:00:12.39    frame=  374 fps= 29 q=22.0 size=N/A time=00:00:12.47 bitrate=N/A dup=1 drop=0 speed=0.967x elapsed=0:00:12.90    frame=  374 fps= 28 q=22.0 size=N/A time=00:00:12.47 bitrate=N/A dup=1 drop=0 speed=0.93x elapsed=0:00:13.41    frame=  374 fps= 27 q=22.0 size=N/A time=00:00:12.47 bitrate=N/A dup=1 drop=0 speed=0.896x elapsed=0:00:13.93    frame=  374 fps= 26 q=22.0 size=N/A time=00:00:12.47 bitrate=N/A dup=1 drop=0 speed=0.864x elapsed=0:00:14.45    frame=  374 fps= 25 q=22.0 size=N/A time=00:00:12.47 bitrate=N/A dup=1 drop=0 speed=0.833x elapsed=0:00:14.97    frame=  374 fps= 24 q=22.0 size=N/A time=00:00:12.47 bitrate=N/A dup=1 drop=0 speed=0.806x elapsed=0:00:15.49    frame=  374 fps= 23 q=22.0 size=N/A time=00:00:12.47 bitrate=N/A dup=1 drop=0 speed=0.78x elapsed=0:00:16.00    [in#0/mpegts @ 000001c035a17300] Error during demuxing: I/O error
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream24.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream25.ts' for writing
+[hls @ 000001c0365ec940] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam2\stream.m3u8.tmp' for writing
+[out#0/hls @ 000001c0365ec840] video:15258KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+frame=  376 fps= 23 q=19.0 Lsize=N/A time=00:00:12.54 bitrate=N/A dup=1 drop=0 speed=0.774x elapsed=0:00:16.20    
+[libx264 @ 000001c036ae83c0] frame I:26    Avg QP:19.15  size:124702
+[libx264 @ 000001c036ae83c0] frame P:350   Avg QP:21.98  size: 35374
+[libx264 @ 000001c036ae83c0] mb I  I16..4: 100.0%  0.0%  0.0%
+[libx264 @ 000001c036ae83c0] mb P  I16..4: 10.9%  0.0%  0.0%  P16..4: 34.0%  0.0%  0.0%  0.0%  0.0%    skip:55.1%
+[libx264 @ 000001c036ae83c0] coded y,uvDC,uvAC intra: 21.4% 39.6% 8.0% inter: 18.5% 16.8% 0.4%
+[libx264 @ 000001c036ae83c0] i16 v,h,dc,p: 45% 19% 27%  9%
+[libx264 @ 000001c036ae83c0] i8c dc,h,v,p: 59% 14% 18%  8%
+[libx264 @ 000001c036ae83c0] kb/s:9962.24

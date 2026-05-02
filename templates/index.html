@@ -8,154 +8,246 @@
 </head>
 <body>
     <div class="container">
+
         <header>
             <h1>GoPro Controller</h1>
-            <div id="connection-status" class="status disconnected">
-                <span class="status-dot"></span>
-                <span class="status-text">Disconnected</span>
+            <div class="header-statuses">
+                <div id="cam1-status" class="cam-status-pill disconnected">
+                    <span class="status-dot"></span>
+                    <span>HERO12</span>
+                </div>
+                <div id="cam2-status" class="cam-status-pill disconnected">
+                    <span class="status-dot"></span>
+                    <span>HERO13</span>
+                </div>
             </div>
         </header>
 
-        <main>
-            <!-- Connection Status Section - always visible -->
-            <section class="connection-section" id="connection-section">
-                <div id="gopro-not-connected" class="not-connected-message">
-                    <h2>GoPro Not Connected</h2>
-                    <p>Make sure GoPro is on and nearby</p>
+        <!-- Both-cameras broadcast bar -->
+        <section class="broadcast-section">
+            <span class="broadcast-label">Both Cameras:</span>
+            <button class="btn btn-primary" onclick="bothCameras('photo')">Photo</button>
+            <button class="btn btn-record" onclick="bothCameras('video-start')">Record</button>
+            <button class="btn btn-danger" onclick="bothCameras('video-stop')">Stop</button>
+            <button class="btn btn-secondary" onclick="bothCameras('stream-start')">Preview Both</button>
+            <button class="btn btn-secondary" onclick="bothCameras('stream-stop')">Stop Previews</button>
+        </section>
+
+        <!-- Two camera panels -->
+        <div class="cameras-grid">
+
+            <!-- Camera 1 -->
+            <div class="camera-panel" id="panel-1">
+                <div class="camera-panel-header">
+                    <div class="cam-title">
+                        <span class="cam-label">CAM 1</span>
+                        <span class="cam-model">HERO12 Black</span>
+                    </div>
+                    <div class="cam-connection-info" id="cam1-conn-info">—</div>
+                </div>
+
+                <!-- Not connected state -->
+                <div class="cam-not-connected" id="cam1-not-connected">
+                    <p>Camera not found — plug in via USB</p>
                     <div class="button-row">
-                        <button id="btn-wake-wifi" class="btn btn-primary">Wake WiFi (Bluetooth)</button>
-                        <button id="btn-retry-connection" class="btn btn-secondary">Retry Connection</button>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Main content - hidden until connected -->
-            <div id="main-content" style="display: none;">
-
-            <!-- WiFi Control -->
-            <section class="wifi-section">
-                <div class="button-row">
-                    <button id="btn-wifi-gopro" class="btn btn-primary">Connect to GoPro</button>
-                    <button id="btn-wifi-home" class="btn btn-secondary">Back to Home WiFi</button>
-                </div>
-            </section>
-
-            <!-- Preview Section -->
-            <section class="preview-section">
-                <h2>Live Preview</h2>
-                <div class="preview-container" id="preview-container">
-                    <video id="preview-video" autoplay muted playsinline style="display:none; max-width:100%;"></video>
-                    <div id="preview-placeholder">
-                        <p>Preview stream will appear here</p>
-                        <button id="btn-start-preview" class="btn btn-secondary">Start Preview</button>
-                        <button id="btn-stop-preview" class="btn btn-danger" style="display:none;">Stop Preview</button>
-                    </div>
-                </div>
-                <div class="preview-controls">
-                    <button id="btn-photo-click" class="btn btn-primary btn-large">Take Photo</button>
-                </div>
-            </section>
-
-            <!-- Control Panel -->
-            <section class="control-section">
-                <h2>Camera Controls</h2>
-
-                <!-- Photo Controls -->
-                <div class="control-group">
-                    <h3>Photo</h3>
-                    <div class="button-row">
-                        <button id="btn-photo" class="btn btn-primary">Take Photo</button>
-                        <button id="btn-photo-timer" class="btn btn-secondary">Timer Photo</button>
-                    </div>
-                    <div class="timer-settings">
-                        <label>Delay: <input type="number" id="photo-delay" value="5" min="1" max="30"> sec</label>
+                        <button class="btn btn-secondary btn-sm" onclick="retryConnection(1)">Retry</button>
                     </div>
                 </div>
 
-                <!-- Interval Controls -->
-                <div class="control-group">
-                    <h3>Interval Capture</h3>
-                    <div class="button-row">
-                        <button id="btn-interval-start" class="btn btn-primary">Start Interval</button>
-                        <button id="btn-interval-stop" class="btn btn-danger" disabled>Stop Interval</button>
-                    </div>
-                    <div class="interval-settings">
-                        <label>Interval: <input type="number" id="interval-seconds" value="10" min="1" max="300"> sec</label>
-                    </div>
-                </div>
+                <!-- Connected state -->
+                <div class="cam-content" id="cam1-content" style="display:none">
 
-                <!-- Video Controls -->
-                <div class="control-group">
-                    <h3>Video</h3>
-                    <div class="button-row">
-                        <button id="btn-video-start" class="btn btn-record">Start Recording</button>
-                        <button id="btn-video-stop" class="btn btn-danger" disabled>Stop Recording</button>
+                    <!-- Preview -->
+                    <div class="preview-container" id="cam1-preview-container">
+                        <img id="cam1-video" style="display:none; width:100%;">
+                        <div id="cam1-preview-placeholder" class="preview-placeholder">
+                            <p>No preview</p>
+                        </div>
                     </div>
-                    <div id="recording-indicator" class="recording-indicator hidden">
-                        <span class="record-dot"></span> Recording...
+                    <div class="preview-btn-row">
+                        <button class="btn btn-secondary btn-sm" id="cam1-btn-start-preview" onclick="startPreview(1)">Start Preview</button>
+                        <button class="btn btn-secondary btn-sm" id="cam1-btn-stop-preview" onclick="stopPreview(1)" style="display:none">Stop Preview</button>
+                        <button class="btn btn-secondary btn-sm" id="cam1-btn-flip" onclick="toggleFlip(1)">Flip</button>
+                        <button class="btn btn-primary btn-sm" onclick="camAction(1, 'photo')">Photo</button>
                     </div>
-                </div>
 
-                <!-- Settings -->
-                <div class="control-group">
-                    <h3>Settings</h3>
-                    <div class="settings-row">
-                        <label>Resolution:
-                            <select id="resolution">
+                    <!-- Video controls -->
+                    <div class="control-group">
+                        <h3>Video</h3>
+                        <div class="button-row">
+                            <button class="btn btn-record" id="cam1-btn-rec-start" onclick="camAction(1, 'video-start')">Start Recording</button>
+                            <button class="btn btn-danger" id="cam1-btn-rec-stop" onclick="camAction(1, 'video-stop')" disabled>Stop Recording</button>
+                        </div>
+                        <div class="recording-indicator hidden" id="cam1-rec-indicator">
+                            <span class="record-dot"></span> Recording
+                        </div>
+                    </div>
+
+                    <!-- Photo controls -->
+                    <div class="control-group">
+                        <h3>Photo</h3>
+                        <div class="button-row">
+                            <button class="btn btn-primary btn-sm" onclick="camAction(1, 'photo')">Shoot</button>
+                            <button class="btn btn-secondary btn-sm" onclick="timerPhoto(1)">Timer</button>
+                            <button class="btn btn-secondary btn-sm" onclick="toggleInterval(1)">Interval</button>
+                        </div>
+                        <div class="mini-settings">
+                            <label>Delay <input type="number" id="cam1-delay" value="5" min="1" max="30">s</label>
+                            <label>Interval <input type="number" id="cam1-interval" value="10" min="1" max="300">s</label>
+                        </div>
+                        <div class="interval-status hidden" id="cam1-interval-status">Interval running...</div>
+                    </div>
+
+                    <!-- Settings -->
+                    <div class="control-group">
+                        <h3>Settings</h3>
+                        <div class="settings-row">
+                            <label>Res <select id="cam1-resolution">
                                 <option value="5.3k">5.3K</option>
                                 <option value="4k">4K</option>
                                 <option value="2.7k">2.7K</option>
                                 <option value="1080" selected>1080p</option>
                                 <option value="720">720p</option>
-                            </select>
-                        </label>
-                        <label>FPS:
-                            <select id="fps">
+                            </select></label>
+                            <label>FPS <select id="cam1-fps">
                                 <option value="240">240</option>
                                 <option value="120">120</option>
                                 <option value="60">60</option>
                                 <option value="30" selected>30</option>
                                 <option value="24">24</option>
-                            </select>
-                        </label>
-                        <button id="btn-apply-settings" class="btn btn-secondary">Apply</button>
+                            </select></label>
+                            <button class="btn btn-secondary btn-sm" onclick="applySettings(1)">Apply</button>
+                        </div>
+                    </div>
+
+
+                </div>
+            </div>
+
+            <!-- Camera 2 -->
+            <div class="camera-panel" id="panel-2">
+                <div class="camera-panel-header">
+                    <div class="cam-title">
+                        <span class="cam-label">CAM 2</span>
+                        <span class="cam-model">HERO13 Black</span>
+                    </div>
+                    <div class="cam-connection-info" id="cam2-conn-info">—</div>
+                </div>
+
+                <!-- Not connected state -->
+                <div class="cam-not-connected" id="cam2-not-connected">
+                    <p>Camera not found — plug in via USB</p>
+                    <div class="button-row">
+                        <button class="btn btn-secondary btn-sm" onclick="retryConnection(2)">Retry</button>
                     </div>
                 </div>
-            </section>
 
-            <!-- Media Browser -->
-            <section class="media-section">
+                <!-- Connected state -->
+                <div class="cam-content" id="cam2-content" style="display:none">
+
+                    <!-- Preview -->
+                    <div class="preview-container" id="cam2-preview-container">
+                        <img id="cam2-video" style="display:none; width:100%;">
+                        <div id="cam2-preview-placeholder" class="preview-placeholder">
+                            <p>No preview</p>
+                        </div>
+                    </div>
+                    <div class="preview-btn-row">
+                        <button class="btn btn-secondary btn-sm" id="cam2-btn-start-preview" onclick="startPreview(2)">Start Preview</button>
+                        <button class="btn btn-secondary btn-sm" id="cam2-btn-stop-preview" onclick="stopPreview(2)" style="display:none">Stop Preview</button>
+                        <button class="btn btn-secondary btn-sm" id="cam2-btn-flip" onclick="toggleFlip(2)">Flip</button>
+                        <button class="btn btn-primary btn-sm" onclick="camAction(2, 'photo')">Photo</button>
+                    </div>
+
+                    <!-- Video controls -->
+                    <div class="control-group">
+                        <h3>Video</h3>
+                        <div class="button-row">
+                            <button class="btn btn-record" id="cam2-btn-rec-start" onclick="camAction(2, 'video-start')">Start Recording</button>
+                            <button class="btn btn-danger" id="cam2-btn-rec-stop" onclick="camAction(2, 'video-stop')" disabled>Stop Recording</button>
+                        </div>
+                        <div class="recording-indicator hidden" id="cam2-rec-indicator">
+                            <span class="record-dot"></span> Recording
+                        </div>
+                    </div>
+
+                    <!-- Photo controls -->
+                    <div class="control-group">
+                        <h3>Photo</h3>
+                        <div class="button-row">
+                            <button class="btn btn-primary btn-sm" onclick="camAction(2, 'photo')">Shoot</button>
+                            <button class="btn btn-secondary btn-sm" onclick="timerPhoto(2)">Timer</button>
+                            <button class="btn btn-secondary btn-sm" onclick="toggleInterval(2)">Interval</button>
+                        </div>
+                        <div class="mini-settings">
+                            <label>Delay <input type="number" id="cam2-delay" value="5" min="1" max="30">s</label>
+                            <label>Interval <input type="number" id="cam2-interval" value="10" min="1" max="300">s</label>
+                        </div>
+                        <div class="interval-status hidden" id="cam2-interval-status">Interval running...</div>
+                    </div>
+
+                    <!-- Settings -->
+                    <div class="control-group">
+                        <h3>Settings</h3>
+                        <div class="settings-row">
+                            <label>Res <select id="cam2-resolution">
+                                <option value="5.3k">5.3K</option>
+                                <option value="4k">4K</option>
+                                <option value="2.7k">2.7K</option>
+                                <option value="1080" selected>1080p</option>
+                                <option value="720">720p</option>
+                            </select></label>
+                            <label>FPS <select id="cam2-fps">
+                                <option value="240">240</option>
+                                <option value="120">120</option>
+                                <option value="60">60</option>
+                                <option value="30" selected>30</option>
+                                <option value="24">24</option>
+                            </select></label>
+                            <button class="btn btn-secondary btn-sm" onclick="applySettings(2)">Apply</button>
+                        </div>
+                    </div>
+
+
+                </div>
+            </div>
+
+        </div><!-- end cameras-grid -->
+
+        <!-- Media Browser (tabbed) -->
+        <section class="media-section">
+            <div class="media-header">
                 <h2>Media Browser</h2>
-                <div class="media-controls">
-                    <button id="btn-refresh-media" class="btn btn-secondary">Refresh</button>
-                    <button id="btn-show-downloads" class="btn btn-secondary">Show Downloads</button>
+                <div class="media-tabs">
+                    <button class="tab-btn active" onclick="selectMediaCam(1, this)">CAM 1</button>
+                    <button class="tab-btn" onclick="selectMediaCam(2, this)">CAM 2</button>
+                    <button class="tab-btn" onclick="showDownloads(this)">Downloads</button>
                 </div>
-                <div id="media-list" class="media-grid">
-                    <p class="placeholder">Click "Refresh" to load media from camera</p>
-                </div>
-            </section>
+                <button class="btn btn-secondary btn-sm" onclick="loadMedia()">Refresh</button>
+            </div>
+            <div id="media-list" class="media-grid">
+                <p class="placeholder">Select a camera tab and click Refresh</p>
+            </div>
+        </section>
 
-            <!-- Downloads/Playback -->
-            <section class="playback-section hidden" id="playback-section">
-                <h2>Playback</h2>
-                <div id="playback-container">
-                    <video id="video-player" controls></video>
-                    <img id="image-viewer" class="hidden">
-                </div>
-                <div class="playback-controls">
-                    <button id="btn-close-playback" class="btn btn-secondary">Close</button>
-                </div>
-            </section>
+        <!-- Playback overlay -->
+        <section class="playback-section hidden" id="playback-section">
+            <h2>Playback</h2>
+            <div id="playback-container">
+                <video id="video-player" controls></video>
+                <img id="image-viewer" class="hidden">
+            </div>
+            <div class="playback-controls">
+                <button class="btn btn-secondary" onclick="closePlayback()">Close</button>
+            </div>
+        </section>
 
-            </div><!-- end main-content -->
-        </main>
+    </div><!-- end container -->
 
-        <!-- Notifications -->
-        <div id="notifications"></div>
-    </div>
+    <!-- Notifications -->
+    <div id="notifications"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="/static/app.js"></script>
 </body>
 </html>

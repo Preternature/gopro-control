@@ -1,0 +1,439 @@
+ffmpeg version 8.0.1-essentials_build-www.gyan.dev Copyright (c) 2000-2025 the FFmpeg developers
+  built with gcc 15.2.0 (Rev8, Built by MSYS2 project)
+  configuration: --enable-gpl --enable-version3 --enable-static --disable-w32threads --disable-autodetect --enable-fontconfig --enable-iconv --enable-gnutls --enable-libxml2 --enable-gmp --enable-bzlib --enable-lzma --enable-zlib --enable-libsrt --enable-libssh --enable-libzmq --enable-avisynth --enable-sdl2 --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxvid --enable-libaom --enable-libopenjpeg --enable-libvpx --enable-mediafoundation --enable-libass --enable-libfreetype --enable-libfribidi --enable-libharfbuzz --enable-libvidstab --enable-libvmaf --enable-libzimg --enable-amf --enable-cuda-llvm --enable-cuvid --enable-dxva2 --enable-d3d11va --enable-d3d12va --enable-ffnvcodec --enable-libvpl --enable-nvdec --enable-nvenc --enable-vaapi --enable-openal --enable-libgme --enable-libopenmpt --enable-libopencore-amrwb --enable-libmp3lame --enable-libtheora --enable-libvo-amrwbenc --enable-libgsm --enable-libopencore-amrnb --enable-libopus --enable-libspeex --enable-libvorbis --enable-librubberband
+  libavutil      60.  8.100 / 60.  8.100
+  libavcodec     62. 11.100 / 62. 11.100
+  libavformat    62.  3.100 / 62.  3.100
+  libavdevice    62.  1.100 / 62.  1.100
+  libavfilter    11.  4.100 / 11.  4.100
+  libswscale      9.  1.100 /  9.  1.100
+  libswresample   6.  1.100 /  6.  1.100
+[mpegts @ 0000029226824e40] Could not find codec parameters for stream 2 (Unknown: none ([128][0][0][0] / 0x0080)): unknown codec
+Consider increasing the value for the 'analyzeduration' (500000) and 'probesize' (500000) options
+[mpegts @ 0000029226824e40] Could not find codec parameters for stream 3 (Audio: ac3 ([129][0][0][0] / 0x0081), 0 channels, fltp): unspecified sample rate
+Consider increasing the value for the 'analyzeduration' (500000) and 'probesize' (500000) options
+Input #0, mpegts, from 'udp://0.0.0.0:8554?timeout=5000000&overrun_nonfatal=1':
+  Duration: N/A, start: 0.333667, bitrate: N/A
+  Program 1 
+  Stream #0:0[0x1011]: Video: h264 (High) ([27][0][0][0] / 0x001B), yuvj420p(pc, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], 29.97 fps, 29.97 tbr, 90k tbn, start 0.333667
+  Stream #0:1[0x1100]: Audio: aac (LC) ([15][0][0][0] / 0x000F), 48000 Hz, stereo, fltp, 194 kb/s, start 0.426667
+  Stream #0:2[0x200]: Unknown: none ([128][0][0][0] / 0x0080)
+  Stream #0:3[0x201]: Audio: ac3 ([129][0][0][0] / 0x0081), 0 channels, fltp
+Stream mapping:
+  Stream #0:0 -> #0:0 (copy)
+Output #0, hls, to 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8':
+  Metadata:
+    encoder         : Lavf62.3.100
+  Stream #0:0: Video: h264 (High) ([27][0][0][0] / 0x001B), yuvj420p(pc, bt709, progressive), 1920x1080 [SAR 1:1 DAR 16:9], q=2-31, 29.97 fps, 29.97 tbr, 90k tbn
+Press [q] to stop, [?] for help
+frame=   10 fps=0.0 q=-1.0 size=N/A time=00:00:01.00 bitrate=N/A speed=1.96x elapsed=0:00:00.51    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream0.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=   25 fps= 24 q=-1.0 size=N/A time=00:00:01.50 bitrate=N/A speed=1.47x elapsed=0:00:01.02    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream1.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=   41 fps= 27 q=-1.0 size=N/A time=00:00:02.03 bitrate=N/A speed=1.32x elapsed=0:00:01.53    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream2.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=   56 fps= 27 q=-1.0 size=N/A time=00:00:02.53 bitrate=N/A speed=1.24x elapsed=0:00:02.05    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream3.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=   72 fps= 28 q=-1.0 size=N/A time=00:00:03.06 bitrate=N/A speed= 1.2x elapsed=0:00:02.56    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream4.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=   87 fps= 28 q=-1.0 size=N/A time=00:00:03.57 bitrate=N/A speed=1.16x elapsed=0:00:03.08    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream5.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  103 fps= 29 q=-1.0 size=N/A time=00:00:04.10 bitrate=N/A speed=1.14x elapsed=0:00:03.61    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream6.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  119 fps= 29 q=-1.0 size=N/A time=00:00:04.63 bitrate=N/A speed=1.12x elapsed=0:00:04.12    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream7.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  134 fps= 29 q=-1.0 size=N/A time=00:00:05.13 bitrate=N/A speed=1.11x elapsed=0:00:04.64    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream8.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  149 fps= 29 q=-1.0 size=N/A time=00:00:05.63 bitrate=N/A speed=1.09x elapsed=0:00:05.15    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream9.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  165 fps= 29 q=-1.0 size=N/A time=00:00:06.17 bitrate=N/A speed=1.09x elapsed=0:00:05.66    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream10.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  180 fps= 29 q=-1.0 size=N/A time=00:00:06.67 bitrate=N/A speed=1.08x elapsed=0:00:06.18    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream11.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream12.ts' for writing
+frame=  196 fps= 29 q=-1.0 size=N/A time=00:00:07.20 bitrate=N/A speed=1.08x elapsed=0:00:06.69    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream13.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  211 fps= 29 q=-1.0 size=N/A time=00:00:07.70 bitrate=N/A speed=1.07x elapsed=0:00:07.20    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream14.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  227 fps= 29 q=-1.0 size=N/A time=00:00:08.24 bitrate=N/A speed=1.07x elapsed=0:00:07.73    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream15.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  242 fps= 29 q=-1.0 size=N/A time=00:00:08.74 bitrate=N/A speed=1.06x elapsed=0:00:08.24    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream16.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  257 fps= 29 q=-1.0 size=N/A time=00:00:09.24 bitrate=N/A speed=1.05x elapsed=0:00:08.76    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream17.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  273 fps= 29 q=-1.0 size=N/A time=00:00:09.77 bitrate=N/A speed=1.05x elapsed=0:00:09.27    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream18.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  288 fps= 29 q=-1.0 size=N/A time=00:00:10.27 bitrate=N/A speed=1.05x elapsed=0:00:09.79    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream19.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  304 fps= 29 q=-1.0 size=N/A time=00:00:10.81 bitrate=N/A speed=1.05x elapsed=0:00:10.30    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream20.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  319 fps= 29 q=-1.0 size=N/A time=00:00:11.31 bitrate=N/A speed=1.05x elapsed=0:00:10.82    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream21.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  335 fps= 30 q=-1.0 size=N/A time=00:00:11.84 bitrate=N/A speed=1.04x elapsed=0:00:11.34    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream22.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  350 fps= 30 q=-1.0 size=N/A time=00:00:12.34 bitrate=N/A speed=1.04x elapsed=0:00:11.85    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream23.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  366 fps= 30 q=-1.0 size=N/A time=00:00:12.87 bitrate=N/A speed=1.04x elapsed=0:00:12.37    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream24.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  381 fps= 30 q=-1.0 size=N/A time=00:00:13.38 bitrate=N/A speed=1.04x elapsed=0:00:12.88    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream25.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  396 fps= 30 q=-1.0 size=N/A time=00:00:13.88 bitrate=N/A speed=1.04x elapsed=0:00:13.39    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream26.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  412 fps= 30 q=-1.0 size=N/A time=00:00:14.41 bitrate=N/A speed=1.04x elapsed=0:00:13.91    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream27.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  427 fps= 30 q=-1.0 size=N/A time=00:00:14.91 bitrate=N/A speed=1.03x elapsed=0:00:14.42    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream28.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  443 fps= 30 q=-1.0 size=N/A time=00:00:15.44 bitrate=N/A speed=1.03x elapsed=0:00:14.94    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream29.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  458 fps= 30 q=-1.0 size=N/A time=00:00:15.94 bitrate=N/A speed=1.03x elapsed=0:00:15.47    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream30.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  474 fps= 30 q=-1.0 size=N/A time=00:00:16.48 bitrate=N/A speed=1.03x elapsed=0:00:15.98    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream31.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  489 fps= 30 q=-1.0 size=N/A time=00:00:16.98 bitrate=N/A speed=1.03x elapsed=0:00:16.49    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream32.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  505 fps= 30 q=-1.0 size=N/A time=00:00:17.51 bitrate=N/A speed=1.03x elapsed=0:00:17.00    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream33.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  520 fps= 30 q=-1.0 size=N/A time=00:00:18.01 bitrate=N/A speed=1.03x elapsed=0:00:17.52    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream34.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  536 fps= 30 q=-1.0 size=N/A time=00:00:18.55 bitrate=N/A speed=1.03x elapsed=0:00:18.05    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream35.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  551 fps= 30 q=-1.0 size=N/A time=00:00:19.05 bitrate=N/A speed=1.03x elapsed=0:00:18.56    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream36.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  567 fps= 30 q=-1.0 size=N/A time=00:00:19.58 bitrate=N/A speed=1.03x elapsed=0:00:19.07    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream37.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  582 fps= 30 q=-1.0 size=N/A time=00:00:20.08 bitrate=N/A speed=1.03x elapsed=0:00:19.58    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream38.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  597 fps= 30 q=-1.0 size=N/A time=00:00:20.58 bitrate=N/A speed=1.02x elapsed=0:00:20.10    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream39.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  613 fps= 30 q=-1.0 size=N/A time=00:00:21.12 bitrate=N/A speed=1.02x elapsed=0:00:20.61    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream40.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  628 fps= 30 q=-1.0 size=N/A time=00:00:21.62 bitrate=N/A speed=1.02x elapsed=0:00:21.13    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream41.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+[mpegts @ 0000029226824e40] Packet corrupt (stream = 0, dts = 2012010), dropping it.
+frame=  642 fps= 30 q=-1.0 size=N/A time=00:00:22.15 bitrate=N/A speed=1.02x elapsed=0:00:21.64    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream42.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  657 fps= 30 q=-1.0 size=N/A time=00:00:22.65 bitrate=N/A speed=1.02x elapsed=0:00:22.17    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream43.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  673 fps= 30 q=-1.0 size=N/A time=00:00:23.18 bitrate=N/A speed=1.02x elapsed=0:00:22.68    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream44.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  688 fps= 30 q=-1.0 size=N/A time=00:00:23.69 bitrate=N/A speed=1.02x elapsed=0:00:23.20    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream45.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream46.ts' for writing
+frame=  704 fps= 30 q=-1.0 size=N/A time=00:00:24.22 bitrate=N/A speed=1.02x elapsed=0:00:23.71    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream47.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  719 fps= 30 q=-1.0 size=N/A time=00:00:24.72 bitrate=N/A speed=1.02x elapsed=0:00:24.22    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream48.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  734 fps= 30 q=-1.0 size=N/A time=00:00:25.22 bitrate=N/A speed=1.02x elapsed=0:00:24.73    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream49.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  750 fps= 30 q=-1.0 size=N/A time=00:00:25.75 bitrate=N/A speed=1.02x elapsed=0:00:25.26    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream50.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  765 fps= 30 q=-1.0 size=N/A time=00:00:26.25 bitrate=N/A speed=1.02x elapsed=0:00:25.77    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream51.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  781 fps= 30 q=-1.0 size=N/A time=00:00:26.79 bitrate=N/A speed=1.02x elapsed=0:00:26.28    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream52.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  796 fps= 30 q=-1.0 size=N/A time=00:00:27.29 bitrate=N/A speed=1.02x elapsed=0:00:26.80    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream53.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  812 fps= 30 q=-1.0 size=N/A time=00:00:27.82 bitrate=N/A speed=1.02x elapsed=0:00:27.32    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream54.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  827 fps= 30 q=-1.0 size=N/A time=00:00:28.32 bitrate=N/A speed=1.02x elapsed=0:00:27.83    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream55.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  842 fps= 30 q=-1.0 size=N/A time=00:00:28.82 bitrate=N/A speed=1.02x elapsed=0:00:28.35    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream56.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  858 fps= 30 q=-1.0 size=N/A time=00:00:29.36 bitrate=N/A speed=1.02x elapsed=0:00:28.87    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream57.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  874 fps= 30 q=-1.0 size=N/A time=00:00:29.89 bitrate=N/A speed=1.02x elapsed=0:00:29.39    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream58.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  889 fps= 30 q=-1.0 size=N/A time=00:00:30.39 bitrate=N/A speed=1.02x elapsed=0:00:29.90    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream59.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  904 fps= 30 q=-1.0 size=N/A time=00:00:30.89 bitrate=N/A speed=1.02x elapsed=0:00:30.41    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream60.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  920 fps= 30 q=-1.0 size=N/A time=00:00:31.43 bitrate=N/A speed=1.02x elapsed=0:00:30.93    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream61.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  935 fps= 30 q=-1.0 size=N/A time=00:00:31.93 bitrate=N/A speed=1.02x elapsed=0:00:31.44    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream62.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  951 fps= 30 q=-1.0 size=N/A time=00:00:32.46 bitrate=N/A speed=1.02x elapsed=0:00:31.97    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream63.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  966 fps= 30 q=-1.0 size=N/A time=00:00:32.96 bitrate=N/A speed=1.01x elapsed=0:00:32.48    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream64.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  982 fps= 30 q=-1.0 size=N/A time=00:00:33.50 bitrate=N/A speed=1.02x elapsed=0:00:32.99    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream65.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame=  997 fps= 30 q=-1.0 size=N/A time=00:00:34.00 bitrate=N/A speed=1.01x elapsed=0:00:33.51    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream66.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1013 fps= 30 q=-1.0 size=N/A time=00:00:34.53 bitrate=N/A speed=1.01x elapsed=0:00:34.02    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream67.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1028 fps= 30 q=-1.0 size=N/A time=00:00:35.03 bitrate=N/A speed=1.01x elapsed=0:00:34.54    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream68.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1043 fps= 30 q=-1.0 size=N/A time=00:00:35.53 bitrate=N/A speed=1.01x elapsed=0:00:35.05    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream69.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1059 fps= 30 q=-1.0 size=N/A time=00:00:36.06 bitrate=N/A speed=1.01x elapsed=0:00:35.56    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream70.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1075 fps= 30 q=-1.0 size=N/A time=00:00:36.60 bitrate=N/A speed=1.01x elapsed=0:00:36.09    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream71.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1090 fps= 30 q=-1.0 size=N/A time=00:00:37.10 bitrate=N/A speed=1.01x elapsed=0:00:36.61    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream72.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1105 fps= 30 q=-1.0 size=N/A time=00:00:37.60 bitrate=N/A speed=1.01x elapsed=0:00:37.11    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream73.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1121 fps= 30 q=-1.0 size=N/A time=00:00:38.13 bitrate=N/A speed=1.01x elapsed=0:00:37.64    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream74.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1136 fps= 30 q=-1.0 size=N/A time=00:00:38.63 bitrate=N/A speed=1.01x elapsed=0:00:38.15    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream75.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1152 fps= 30 q=-1.0 size=N/A time=00:00:39.17 bitrate=N/A speed=1.01x elapsed=0:00:38.66    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream76.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1167 fps= 30 q=-1.0 size=N/A time=00:00:39.67 bitrate=N/A speed=1.01x elapsed=0:00:39.18    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream77.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream78.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1183 fps= 30 q=-1.0 size=N/A time=00:00:40.20 bitrate=N/A speed=1.01x elapsed=0:00:39.69    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream79.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1198 fps= 30 q=-1.0 size=N/A time=00:00:40.70 bitrate=N/A speed=1.01x elapsed=0:00:40.21    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream80.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1213 fps= 30 q=-1.0 size=N/A time=00:00:41.20 bitrate=N/A speed=1.01x elapsed=0:00:40.72    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream81.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1229 fps= 30 q=-1.0 size=N/A time=00:00:41.74 bitrate=N/A speed=1.01x elapsed=0:00:41.24    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream82.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1245 fps= 30 q=-1.0 size=N/A time=00:00:42.27 bitrate=N/A speed=1.01x elapsed=0:00:41.76    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream83.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1260 fps= 30 q=-1.0 size=N/A time=00:00:42.77 bitrate=N/A speed=1.01x elapsed=0:00:42.28    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream84.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1275 fps= 30 q=-1.0 size=N/A time=00:00:43.27 bitrate=N/A speed=1.01x elapsed=0:00:42.79    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream85.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1291 fps= 30 q=-1.0 size=N/A time=00:00:43.81 bitrate=N/A speed=1.01x elapsed=0:00:43.30    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream86.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1306 fps= 30 q=-1.0 size=N/A time=00:00:44.31 bitrate=N/A speed=1.01x elapsed=0:00:43.82    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream87.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1322 fps= 30 q=-1.0 size=N/A time=00:00:44.84 bitrate=N/A speed=1.01x elapsed=0:00:44.33    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream88.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1337 fps= 30 q=-1.0 size=N/A time=00:00:45.34 bitrate=N/A speed=1.01x elapsed=0:00:44.85    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream89.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1353 fps= 30 q=-1.0 size=N/A time=00:00:45.87 bitrate=N/A speed=1.01x elapsed=0:00:45.37    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream90.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1368 fps= 30 q=-1.0 size=N/A time=00:00:46.37 bitrate=N/A speed=1.01x elapsed=0:00:45.89    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream91.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1384 fps= 30 q=-1.0 size=N/A time=00:00:46.91 bitrate=N/A speed=1.01x elapsed=0:00:46.40    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream92.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1399 fps= 30 q=-1.0 size=N/A time=00:00:47.41 bitrate=N/A speed=1.01x elapsed=0:00:46.91    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream93.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1414 fps= 30 q=-1.0 size=N/A time=00:00:47.91 bitrate=N/A speed=1.01x elapsed=0:00:47.43    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream94.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1430 fps= 30 q=-1.0 size=N/A time=00:00:48.44 bitrate=N/A speed=1.01x elapsed=0:00:47.95    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream95.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1446 fps= 30 q=-1.0 size=N/A time=00:00:48.98 bitrate=N/A speed=1.01x elapsed=0:00:48.47    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream96.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1461 fps= 30 q=-1.0 size=N/A time=00:00:49.48 bitrate=N/A speed=1.01x elapsed=0:00:49.00    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream97.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1477 fps= 30 q=-1.0 size=N/A time=00:00:50.01 bitrate=N/A speed=1.01x elapsed=0:00:49.51    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream98.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1492 fps= 30 q=-1.0 size=N/A time=00:00:50.51 bitrate=N/A speed=1.01x elapsed=0:00:50.02    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream99.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1508 fps= 30 q=-1.0 size=N/A time=00:00:51.05 bitrate=N/A speed=1.01x elapsed=0:00:50.54    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream100.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1523 fps= 30 q=-1.0 size=N/A time=00:00:51.55 bitrate=N/A speed=1.01x elapsed=0:00:51.05    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream101.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1539 fps= 30 q=-1.0 size=N/A time=00:00:52.08 bitrate=N/A speed=1.01x elapsed=0:00:51.57    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream102.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1554 fps= 30 q=-1.0 size=N/A time=00:00:52.58 bitrate=N/A speed=1.01x elapsed=0:00:52.09    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream103.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1569 fps= 30 q=-1.0 size=N/A time=00:00:53.08 bitrate=N/A speed=1.01x elapsed=0:00:52.60    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream104.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1585 fps= 30 q=-1.0 size=N/A time=00:00:53.62 bitrate=N/A speed=1.01x elapsed=0:00:53.11    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream105.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1600 fps= 30 q=-1.0 size=N/A time=00:00:54.12 bitrate=N/A speed=1.01x elapsed=0:00:53.63    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream106.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1616 fps= 30 q=-1.0 size=N/A time=00:00:54.65 bitrate=N/A speed=1.01x elapsed=0:00:54.15    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream107.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1631 fps= 30 q=-1.0 size=N/A time=00:00:55.15 bitrate=N/A speed=1.01x elapsed=0:00:54.67    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream108.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1647 fps= 30 q=-1.0 size=N/A time=00:00:55.68 bitrate=N/A speed=1.01x elapsed=0:00:55.18    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream109.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1662 fps= 30 q=-1.0 size=N/A time=00:00:56.18 bitrate=N/A speed=1.01x elapsed=0:00:55.69    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream110.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream111.ts' for writing
+frame= 1678 fps= 30 q=-1.0 size=N/A time=00:00:56.72 bitrate=N/A speed=1.01x elapsed=0:00:56.21    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream112.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1693 fps= 30 q=-1.0 size=N/A time=00:00:57.22 bitrate=N/A speed=1.01x elapsed=0:00:56.72    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream113.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1709 fps= 30 q=-1.0 size=N/A time=00:00:57.75 bitrate=N/A speed=1.01x elapsed=0:00:57.25    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream114.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1724 fps= 30 q=-1.0 size=N/A time=00:00:58.25 bitrate=N/A speed=1.01x elapsed=0:00:57.76    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream115.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1739 fps= 30 q=-1.0 size=N/A time=00:00:58.75 bitrate=N/A speed=1.01x elapsed=0:00:58.28    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream116.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1755 fps= 30 q=-1.0 size=N/A time=00:00:59.29 bitrate=N/A speed=1.01x elapsed=0:00:58.79    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream117.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1770 fps= 30 q=-1.0 size=N/A time=00:00:59.79 bitrate=N/A speed=1.01x elapsed=0:00:59.30    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream118.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1786 fps= 30 q=-1.0 size=N/A time=00:01:00.32 bitrate=N/A speed=1.01x elapsed=0:00:59.82    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream119.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1801 fps= 30 q=-1.0 size=N/A time=00:01:00.82 bitrate=N/A speed=1.01x elapsed=0:01:00.33    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream120.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1817 fps= 30 q=-1.0 size=N/A time=00:01:01.36 bitrate=N/A speed=1.01x elapsed=0:01:00.84    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream121.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1832 fps= 30 q=-1.0 size=N/A time=00:01:01.86 bitrate=N/A speed=1.01x elapsed=0:01:01.37    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream122.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1848 fps= 30 q=-1.0 size=N/A time=00:01:02.39 bitrate=N/A speed=1.01x elapsed=0:01:01.89    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream123.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1863 fps= 30 q=-1.0 size=N/A time=00:01:02.89 bitrate=N/A speed=1.01x elapsed=0:01:02.40    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream124.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1879 fps= 30 q=-1.0 size=N/A time=00:01:03.39 bitrate=N/A speed=1.01x elapsed=0:01:02.91    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream125.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1894 fps= 30 q=-1.0 size=N/A time=00:01:03.93 bitrate=N/A speed=1.01x elapsed=0:01:03.43    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream126.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1909 fps= 30 q=-1.0 size=N/A time=00:01:04.43 bitrate=N/A speed=1.01x elapsed=0:01:03.94    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream127.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1925 fps= 30 q=-1.0 size=N/A time=00:01:04.96 bitrate=N/A speed=1.01x elapsed=0:01:04.46    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream128.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1940 fps= 30 q=-1.0 size=N/A time=00:01:05.46 bitrate=N/A speed=1.01x elapsed=0:01:04.97    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream129.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1956 fps= 30 q=-1.0 size=N/A time=00:01:05.99 bitrate=N/A speed=1.01x elapsed=0:01:05.48    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream130.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1971 fps= 30 q=-1.0 size=N/A time=00:01:06.49 bitrate=N/A speed=1.01x elapsed=0:01:06.01    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream131.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 1987 fps= 30 q=-1.0 size=N/A time=00:01:07.03 bitrate=N/A speed=1.01x elapsed=0:01:06.53    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream132.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2002 fps= 30 q=-1.0 size=N/A time=00:01:07.53 bitrate=N/A speed=1.01x elapsed=0:01:07.04    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream133.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2018 fps= 30 q=-1.0 size=N/A time=00:01:08.06 bitrate=N/A speed=1.01x elapsed=0:01:07.55    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream134.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2033 fps= 30 q=-1.0 size=N/A time=00:01:08.56 bitrate=N/A speed=1.01x elapsed=0:01:08.08    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream135.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2049 fps= 30 q=-1.0 size=N/A time=00:01:09.10 bitrate=N/A speed=1.01x elapsed=0:01:08.61    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream136.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2065 fps= 30 q=-1.0 size=N/A time=00:01:09.63 bitrate=N/A speed=1.01x elapsed=0:01:09.12    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream137.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2080 fps= 30 q=-1.0 size=N/A time=00:01:10.13 bitrate=N/A speed=1.01x elapsed=0:01:09.63    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream138.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2095 fps= 30 q=-1.0 size=N/A time=00:01:10.63 bitrate=N/A speed=1.01x elapsed=0:01:10.15    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream139.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2111 fps= 30 q=-1.0 size=N/A time=00:01:11.17 bitrate=N/A speed=1.01x elapsed=0:01:10.66    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream140.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2126 fps= 30 q=-1.0 size=N/A time=00:01:11.67 bitrate=N/A speed=1.01x elapsed=0:01:11.17    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream141.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream142.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2142 fps= 30 q=-1.0 size=N/A time=00:01:12.20 bitrate=N/A speed=1.01x elapsed=0:01:11.70    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream143.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2157 fps= 30 q=-1.0 size=N/A time=00:01:12.70 bitrate=N/A speed=1.01x elapsed=0:01:12.22    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream144.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2173 fps= 30 q=-1.0 size=N/A time=00:01:13.23 bitrate=N/A speed=1.01x elapsed=0:01:12.75    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream145.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2189 fps= 30 q=-1.0 size=N/A time=00:01:13.77 bitrate=N/A speed=1.01x elapsed=0:01:13.26    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream146.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2204 fps= 30 q=-1.0 size=N/A time=00:01:14.27 bitrate=N/A speed=1.01x elapsed=0:01:13.77    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream147.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2219 fps= 30 q=-1.0 size=N/A time=00:01:14.77 bitrate=N/A speed=1.01x elapsed=0:01:14.28    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream148.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2235 fps= 30 q=-1.0 size=N/A time=00:01:15.30 bitrate=N/A speed=1.01x elapsed=0:01:14.81    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream149.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2251 fps= 30 q=-1.0 size=N/A time=00:01:15.84 bitrate=N/A speed=1.01x elapsed=0:01:15.33    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream150.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2266 fps= 30 q=-1.0 size=N/A time=00:01:16.34 bitrate=N/A speed=1.01x elapsed=0:01:15.86    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream151.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2282 fps= 30 q=-1.0 size=N/A time=00:01:16.87 bitrate=N/A speed=1.01x elapsed=0:01:16.37    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream152.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2297 fps= 30 q=-1.0 size=N/A time=00:01:17.37 bitrate=N/A speed=1.01x elapsed=0:01:16.88    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream153.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2313 fps= 30 q=-1.0 size=N/A time=00:01:17.91 bitrate=N/A speed=1.01x elapsed=0:01:17.40    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream154.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2328 fps= 30 q=-1.0 size=N/A time=00:01:18.41 bitrate=N/A speed=1.01x elapsed=0:01:17.91    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream155.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2343 fps= 30 q=-1.0 size=N/A time=00:01:18.91 bitrate=N/A speed=1.01x elapsed=0:01:18.42    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream156.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2359 fps= 30 q=-1.0 size=N/A time=00:01:19.44 bitrate=N/A speed=1.01x elapsed=0:01:18.94    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream157.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2374 fps= 30 q=-1.0 size=N/A time=00:01:19.94 bitrate=N/A speed=1.01x elapsed=0:01:19.45    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream158.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2390 fps= 30 q=-1.0 size=N/A time=00:01:20.48 bitrate=N/A speed=1.01x elapsed=0:01:19.98    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream159.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2405 fps= 30 q=-1.0 size=N/A time=00:01:20.98 bitrate=N/A speed=1.01x elapsed=0:01:20.49    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream160.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2421 fps= 30 q=-1.0 size=N/A time=00:01:21.51 bitrate=N/A speed=1.01x elapsed=0:01:21.01    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream161.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2436 fps= 30 q=-1.0 size=N/A time=00:01:22.01 bitrate=N/A speed=1.01x elapsed=0:01:21.52    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream162.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2452 fps= 30 q=-1.0 size=N/A time=00:01:22.54 bitrate=N/A speed=1.01x elapsed=0:01:22.04    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream163.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2467 fps= 30 q=-1.0 size=N/A time=00:01:23.04 bitrate=N/A speed=1.01x elapsed=0:01:22.55    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream164.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2483 fps= 30 q=-1.0 size=N/A time=00:01:23.58 bitrate=N/A speed=1.01x elapsed=0:01:23.08    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream165.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2498 fps= 30 q=-1.0 size=N/A time=00:01:24.08 bitrate=N/A speed=1.01x elapsed=0:01:23.59    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream166.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2514 fps= 30 q=-1.0 size=N/A time=00:01:24.61 bitrate=N/A speed=1.01x elapsed=0:01:24.10    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream167.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2529 fps= 30 q=-1.0 size=N/A time=00:01:25.11 bitrate=N/A speed=1.01x elapsed=0:01:24.62    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream168.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+[mpegts @ 0000029226824e40] Packet corrupt (stream = 0, dts = 7717710), dropping it.
+frame= 2543 fps= 30 q=-1.0 size=N/A time=00:01:25.61 bitrate=N/A speed=1.01x elapsed=0:01:25.13    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream169.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2559 fps= 30 q=-1.0 size=N/A time=00:01:26.15 bitrate=N/A speed=1.01x elapsed=0:01:25.64    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream170.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2574 fps= 30 q=-1.0 size=N/A time=00:01:26.65 bitrate=N/A speed=1.01x elapsed=0:01:26.16    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream171.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2590 fps= 30 q=-1.0 size=N/A time=00:01:27.18 bitrate=N/A speed=1.01x elapsed=0:01:26.67    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream172.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2605 fps= 30 q=-1.0 size=N/A time=00:01:27.68 bitrate=N/A speed=1.01x elapsed=0:01:27.20    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream173.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream174.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2621 fps= 30 q=-1.0 size=N/A time=00:01:28.22 bitrate=N/A speed=1.01x elapsed=0:01:27.71    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream175.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2636 fps= 30 q=-1.0 size=N/A time=00:01:28.72 bitrate=N/A speed=1.01x elapsed=0:01:28.23    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream176.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2652 fps= 30 q=-1.0 size=N/A time=00:01:29.25 bitrate=N/A speed=1.01x elapsed=0:01:28.74    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream177.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2667 fps= 30 q=-1.0 size=N/A time=00:01:29.75 bitrate=N/A speed=1.01x elapsed=0:01:29.25    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream178.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2682 fps= 30 q=-1.0 size=N/A time=00:01:30.25 bitrate=N/A speed=1.01x elapsed=0:01:29.77    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream179.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2698 fps= 30 q=-1.0 size=N/A time=00:01:30.79 bitrate=N/A speed=1.01x elapsed=0:01:30.28    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream180.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2714 fps= 30 q=-1.0 size=N/A time=00:01:31.32 bitrate=N/A speed=1.01x elapsed=0:01:30.81    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream181.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2729 fps= 30 q=-1.0 size=N/A time=00:01:31.82 bitrate=N/A speed=1.01x elapsed=0:01:31.32    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream182.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2744 fps= 30 q=-1.0 size=N/A time=00:01:32.32 bitrate=N/A speed=1.01x elapsed=0:01:31.83    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream183.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2760 fps= 30 q=-1.0 size=N/A time=00:01:32.85 bitrate=N/A speed=1.01x elapsed=0:01:32.35    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream184.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2775 fps= 30 q=-1.0 size=N/A time=00:01:33.35 bitrate=N/A speed=1.01x elapsed=0:01:32.86    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream185.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2791 fps= 30 q=-1.0 size=N/A time=00:01:33.89 bitrate=N/A speed=1.01x elapsed=0:01:33.38    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream186.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2806 fps= 30 q=-1.0 size=N/A time=00:01:34.39 bitrate=N/A speed=1.01x elapsed=0:01:33.89    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream187.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2822 fps= 30 q=-1.0 size=N/A time=00:01:34.92 bitrate=N/A speed=1.01x elapsed=0:01:34.42    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream188.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2837 fps= 30 q=-1.0 size=N/A time=00:01:35.42 bitrate=N/A speed=1.01x elapsed=0:01:34.93    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream189.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2853 fps= 30 q=-1.0 size=N/A time=00:01:35.96 bitrate=N/A speed=1.01x elapsed=0:01:35.44    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream190.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2868 fps= 30 q=-1.0 size=N/A time=00:01:36.46 bitrate=N/A speed=1.01x elapsed=0:01:35.96    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream191.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2883 fps= 30 q=-1.0 size=N/A time=00:01:36.96 bitrate=N/A speed=1.01x elapsed=0:01:36.47    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream192.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2899 fps= 30 q=-1.0 size=N/A time=00:01:37.49 bitrate=N/A speed=1.01x elapsed=0:01:36.98    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream193.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2915 fps= 30 q=-1.0 size=N/A time=00:01:38.03 bitrate=N/A speed=1.01x elapsed=0:01:37.51    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream194.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2930 fps= 30 q=-1.0 size=N/A time=00:01:38.53 bitrate=N/A speed=1.01x elapsed=0:01:38.03    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream195.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2945 fps= 30 q=-1.0 size=N/A time=00:01:39.03 bitrate=N/A speed=   1x elapsed=0:01:38.54    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream196.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2961 fps= 30 q=-1.0 size=N/A time=00:01:39.56 bitrate=N/A speed=1.01x elapsed=0:01:39.06    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream197.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2976 fps= 30 q=-1.0 size=N/A time=00:01:40.06 bitrate=N/A speed=   1x elapsed=0:01:39.57    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream198.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 2992 fps= 30 q=-1.0 size=N/A time=00:01:40.60 bitrate=N/A speed=1.01x elapsed=0:01:40.09    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream199.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 3007 fps= 30 q=-1.0 size=N/A time=00:01:41.10 bitrate=N/A speed=   1x elapsed=0:01:40.60    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream200.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+frame= 3022 fps= 30 q=-1.0 size=N/A time=00:01:41.60 bitrate=N/A speed=   1x elapsed=0:01:41.11    [hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream201.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream202.ts' for writing
+[hls @ 0000029226858b40] Opening 'C:\Users\woody\Desktop\Woody\gopro-control\static\hls\cam1\stream.m3u8.tmp' for writing
+[out#0/hls @ 0000029226fa7bc0] video:35553KiB audio:0KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+frame= 3038 fps= 30 q=-1.0 Lsize=N/A time=00:01:42.13 bitrate=N/A speed=   1x elapsed=0:01:41.65    
+Exiting normally, received signal 2.
