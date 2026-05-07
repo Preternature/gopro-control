@@ -68,6 +68,7 @@
                         <button class="btn btn-secondary btn-sm" id="cam1-btn-start-preview" onclick="startPreview(1)">Start Preview</button>
                         <button class="btn btn-secondary btn-sm" id="cam1-btn-stop-preview" onclick="stopPreview(1)" style="display:none">Stop Preview</button>
                         <button class="btn btn-secondary btn-sm" id="cam1-btn-flip" onclick="toggleFlip(1)">Flip</button>
+                        <button class="btn btn-secondary btn-sm" id="cam1-btn-track" onclick="toggleTracking(1)">Track</button>
                         <button class="btn btn-primary btn-sm" onclick="camAction(1, 'photo')">Photo</button>
                     </div>
 
@@ -80,6 +81,9 @@
                         </div>
                         <div class="recording-indicator hidden" id="cam1-rec-indicator">
                             <span class="record-dot"></span> Recording
+                        </div>
+                        <div class="tracking-indicator hidden" id="cam1-track-indicator">
+                            <span class="track-dot"></span> <span id="cam1-track-text">Scanning...</span>
                         </div>
                     </div>
 
@@ -156,6 +160,7 @@
                         <button class="btn btn-secondary btn-sm" id="cam2-btn-start-preview" onclick="startPreview(2)">Start Preview</button>
                         <button class="btn btn-secondary btn-sm" id="cam2-btn-stop-preview" onclick="stopPreview(2)" style="display:none">Stop Preview</button>
                         <button class="btn btn-secondary btn-sm" id="cam2-btn-flip" onclick="toggleFlip(2)">Flip</button>
+                        <button class="btn btn-secondary btn-sm" id="cam2-btn-track" onclick="toggleTracking(2)">Track</button>
                         <button class="btn btn-primary btn-sm" onclick="camAction(2, 'photo')">Photo</button>
                     </div>
 
@@ -168,6 +173,9 @@
                         </div>
                         <div class="recording-indicator hidden" id="cam2-rec-indicator">
                             <span class="record-dot"></span> Recording
+                        </div>
+                        <div class="tracking-indicator hidden" id="cam2-track-indicator">
+                            <span class="track-dot"></span> <span id="cam2-track-text">Scanning...</span>
                         </div>
                     </div>
 
@@ -213,6 +221,89 @@
             </div>
 
         </div><!-- end cameras-grid -->
+
+        <!-- Camera Rail + Gimbal -->
+        <section class="arduino-section" id="arduino-section">
+            <div class="arduino-header">
+                <h2>Camera Rail + Gimbal</h2>
+                <div class="arduino-status-row">
+                    <div id="arduino-status" class="cam-status-pill disconnected">
+                        <span class="status-dot"></span>
+                        <span id="arduino-status-text">Disconnected</span>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="arduinoConnect()">Connect</button>
+                </div>
+            </div>
+
+            <div id="arduino-controls" class="arduino-grid" style="display:none">
+
+                <!-- Rail -->
+                <div class="control-group">
+                    <h3>Rail</h3>
+                    <div class="arduino-rail-settings">
+                        <label>Speed delay (μs)
+                            <input type="range" id="rail-speed" min="10" max="2000" value="91"
+                                   oninput="arduinoRailSlider()" onchange="arduinoSendSettings()">
+                            <span id="rail-speed-val">91</span>
+                        </label>
+                        <label>Duration (ms)
+                            <input type="range" id="rail-duration" min="100" max="60000" value="10000"
+                                   oninput="arduinoRailSlider()" onchange="arduinoSendSettings()">
+                            <span id="rail-duration-val">10000</span>
+                        </label>
+                    </div>
+                    <div class="button-row" style="margin-top:10px">
+                        <button class="btn btn-sm" style="background:#4caf50;color:white" onclick="arduinoPost('rail/away')">➡ Away</button>
+                        <button class="btn btn-sm" style="background:#c8a96e;color:white" onclick="arduinoPost('rail/toward')">⚙ Toward</button>
+                        <button class="btn btn-danger btn-sm" onclick="arduinoPost('rail/stop')">Stop</button>
+                    </div>
+                </div>
+
+                <!-- Pan (Base Servo) -->
+                <div class="control-group">
+                    <h3>Pan</h3>
+                    <div class="axis-slider-row">
+                        <span class="axis-label">← Left</span>
+                        <input type="range" id="base-angle" min="0" max="180" value="90"
+                               oninput="arduinoBaseAngle(this.value)">
+                        <span class="axis-label">Right →</span>
+                    </div>
+                    <div class="button-row" style="margin-top:8px">
+                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetBase(0)">Full Left</button>
+                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetBase(90)">Center</button>
+                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetBase(180)">Full Right</button>
+                        <button class="btn btn-secondary btn-sm" onclick="arduinoPost('gimbal/sweep',{target:'base'})">Sweep</button>
+                    </div>
+                </div>
+
+                <!-- Tilt (Camera Pivot) -->
+                <div class="control-group">
+                    <h3>Tilt</h3>
+                    <div class="axis-slider-row">
+                        <span class="axis-label">↑ Up</span>
+                        <input type="range" id="cam-us" min="400" max="2600" value="1500"
+                               oninput="arduinoCamUs(this.value)">
+                        <span class="axis-label">Down ↓</span>
+                    </div>
+                    <div class="button-row" style="margin-top:8px">
+                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetCamUs(400)">Full Up</button>
+                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetCamUs(1500)">Center</button>
+                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetCamUs(2600)">Full Down</button>
+                        <button class="btn btn-secondary btn-sm" onclick="arduinoPost('gimbal/sweep',{target:'cam'})">Sweep</button>
+                    </div>
+                </div>
+
+                <!-- Both -->
+                <div class="control-group">
+                    <h3>Both Servos</h3>
+                    <div class="button-row">
+                        <button class="btn btn-primary btn-sm" onclick="arduinoPost('gimbal/center')">Center Both</button>
+                        <button class="btn btn-secondary btn-sm" onclick="arduinoPost('gimbal/sweep',{target:'both'})">Sweep Both</button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
 
         <!-- Media Browser (tabbed) -->
         <section class="media-section">

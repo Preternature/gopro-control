@@ -12,6 +12,7 @@ import os
 import time
 import threading
 import asyncio
+import queue
 from typing import Optional, Tuple, List
 from bleak import BleakScanner, BleakClient
 from requests.adapters import HTTPAdapter
@@ -72,6 +73,10 @@ class GoProConnection:
         self.GOPRO_SSID = gopro_ssid or self.DEFAULT_GOPRO_SSID
         self.BLE_NAME = ble_name  # exact BLE advertisement name, e.g. "GoPro 4477"
         self._session = requests.Session()  # may be replaced with a bound session on WiFi connect
+        # Frame fan-out: one dispatch thread, multiple consumer queues
+        self._subscribers: list = []
+        self._subscriber_lock = threading.Lock()
+        self._dispatch_thread: Optional[threading.Thread] = None
 
     # === Static / Class Methods ===
 
@@ -505,10 +510,58 @@ class GoProConnection:
             print(f"[{self.name}] Error switching to home WiFi: {e}")
             return False
 
-    # === HLS Streaming ===
+    # === MJPEG Streaming ===
+
+    def subscribe_frames(self) -> queue.Queue:
+        """Get a frame queue. Caller receives JPEG bytes; old frames dropped when full."""
+        q = queue.Queue(maxsize=2)
+        with self._subscriber_lock:
+            self._subscribers.append(q)
+        return q
+
+    def unsubscribe_frames(self, q: queue.Queue):
+        with self._subscriber_lock:
+            if q in self._subscribers:
+                self._subscribers.remove(q)
+
+    def _dispatch_frames_loop(self):
+        """Background thread: read MJPEG from FFmpeg stdout and fan out to all subscribers."""
+        buf = b''
+        SOI = b'\xff\xd8'
+        EOI = b'\xff\xd9'
+        while self.stream_active and self.ffmpeg_process:
+            try:
+                chunk = self.ffmpeg_process.stdout.read(4096)
+            except Exception:
+                break
+            if not chunk:
+                break
+            buf += chunk
+            while True:
+                start = buf.find(SOI)
+                if start == -1:
+                    buf = b''
+                    break
+                end = buf.find(EOI, start + 2)
+                if end == -1:
+                    buf = buf[start:]
+                    break
+                frame = buf[start:end + 2]
+                buf = buf[end + 2:]
+                with self._subscriber_lock:
+                    for q in self._subscribers:
+                        if q.full():
+                            try:
+                                q.get_nowait()
+                            except queue.Empty:
+                                pass
+                        try:
+                            q.put_nowait(frame)
+                        except queue.Full:
+                            pass
 
     def start_mjpeg_stream(self) -> bool:
-        """Start FFmpeg outputting MJPEG frames to a pipe (low-latency preview)"""
+        """Start FFmpeg outputting MJPEG frames via fan-out dispatch thread."""
         if self.ffmpeg_process:
             self.stop_mjpeg_stream()
 
@@ -544,6 +597,10 @@ class GoProConnection:
                 stderr=subprocess.DEVNULL
             )
             self.stream_active = True
+            self._dispatch_thread = threading.Thread(
+                target=self._dispatch_frames_loop, daemon=True
+            )
+            self._dispatch_thread.start()
             return True
         except FileNotFoundError:
             print(f"[{self.name}] ERROR: FFmpeg not found")
@@ -553,33 +610,22 @@ class GoProConnection:
             return False
 
     def mjpeg_frames(self):
-        """Generator yielding raw JPEG bytes from the FFmpeg pipe"""
-        buf = b''
-        SOI = b'\xff\xd8'
-        EOI = b'\xff\xd9'
-        while self.stream_active and self.ffmpeg_process:
-            try:
-                chunk = self.ffmpeg_process.stdout.read(4096)
-            except Exception:
-                break
-            if not chunk:
-                break
-            buf += chunk
-            # Extract complete frames
-            while True:
-                start = buf.find(SOI)
-                if start == -1:
-                    buf = b''
+        """Generator yielding JPEG bytes. Subscribes to the dispatch thread."""
+        q = self.subscribe_frames()
+        try:
+            while self.stream_active:
+                try:
+                    frame = q.get(timeout=2.0)
+                    yield frame
+                except queue.Empty:
                     break
-                end = buf.find(EOI, start + 2)
-                if end == -1:
-                    buf = buf[start:]  # keep partial frame
-                    break
-                yield buf[start:end + 2]
-                buf = buf[end + 2:]
+        finally:
+            self.unsubscribe_frames(q)
 
     def stop_mjpeg_stream(self) -> bool:
-        """Stop the FFmpeg HLS stream"""
+        """Stop the MJPEG stream and dispatch thread."""
+        self.stream_active = False
+
         if self.ffmpeg_process:
             self.ffmpeg_process.terminate()
             self.ffmpeg_process = None
@@ -589,5 +635,4 @@ class GoProConnection:
             self.ffmpeg_log = None
 
         self.stop_preview_stream()
-        self.stream_active = False
         return True

@@ -7,6 +7,8 @@ import os
 from flask import Flask, render_template, jsonify, request, send_from_directory, Response
 from flask_socketio import SocketIO
 from gopro import GoProConnection, GoProCamera, GoProMedia
+from arduino import ArduinoController
+from tracker import PersonTracker
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'gopro-controller-secret'
@@ -56,6 +58,97 @@ cameras = {
 def get_cam(cam_id: int):
     """Return camera dict or None"""
     return cameras.get(cam_id)
+
+# Arduino controller (Camera Rail + Gimbal)
+arduino = ArduinoController()
+
+# Person tracker (OpenCV HOG + gimbal auto-centering)
+tracker = PersonTracker(arduino)
+
+# ── Arduino Routes ──────────────────────────────────────────────────────────
+
+@app.route('/api/arduino/status')
+def arduino_status():
+    return jsonify(arduino.get_status())
+
+@app.route('/api/arduino/connect', methods=['POST'])
+def arduino_connect():
+    ok = arduino.connect()
+    return jsonify({"success": ok, **arduino.get_status()})
+
+# Rail
+@app.route('/api/arduino/rail/settings', methods=['POST'])
+def arduino_rail_settings():
+    data = request.json or {}
+    if 'speed' in data:
+        arduino.rail_set_speed(int(data['speed']))
+    if 'duration' in data:
+        arduino.rail_set_duration(int(data['duration']))
+    return jsonify({"success": True, **arduino.get_status()})
+
+@app.route('/api/arduino/rail/away', methods=['POST'])
+def arduino_rail_away():
+    return jsonify({"success": arduino.rail_away()})
+
+@app.route('/api/arduino/rail/toward', methods=['POST'])
+def arduino_rail_toward():
+    return jsonify({"success": arduino.rail_toward()})
+
+@app.route('/api/arduino/rail/stop', methods=['POST'])
+def arduino_rail_stop():
+    return jsonify({"success": arduino.rail_stop()})
+
+# Gimbal
+@app.route('/api/arduino/gimbal/base', methods=['POST'])
+def arduino_gimbal_base():
+    data = request.json or {}
+    if 'us' in data:
+        return jsonify({"success": arduino.gimbal_base_us(int(data['us']))})
+    return jsonify({"success": arduino.gimbal_base_angle(int(data.get('angle', 90)))})
+
+@app.route('/api/arduino/gimbal/cam', methods=['POST'])
+def arduino_gimbal_cam():
+    data = request.json or {}
+    if 'us' in data:
+        return jsonify({"success": arduino.gimbal_cam_us(int(data['us']))})
+    return jsonify({"success": arduino.gimbal_cam_angle(int(data.get('angle', 90)))})
+
+@app.route('/api/arduino/gimbal/center', methods=['POST'])
+def arduino_gimbal_center():
+    return jsonify({"success": arduino.gimbal_center()})
+
+@app.route('/api/arduino/gimbal/sweep', methods=['POST'])
+def arduino_gimbal_sweep():
+    target = (request.json or {}).get('target', 'both')
+    if target == 'base':
+        ok = arduino.gimbal_sweep_base()
+    elif target == 'cam':
+        ok = arduino.gimbal_sweep_cam()
+    else:
+        ok = arduino.gimbal_sweep_both()
+    return jsonify({"success": ok})
+
+# ── Tracker Routes ──────────────────────────────────────────────────────────
+
+@app.route('/api/tracker/status')
+def tracker_status():
+    return jsonify(tracker.get_status())
+
+@app.route('/api/tracker/<int:cam_id>/start', methods=['POST'])
+def tracker_start(cam_id):
+    c = get_cam(cam_id)
+    if not c:
+        return jsonify({"error": f"Camera {cam_id} not found"}), 404
+    if not c["conn"].stream_active:
+        return jsonify({"error": "Start the camera preview first"}), 400
+    flip = bool((request.json or {}).get('flip', False))
+    ok = tracker.start(cam_id, c["conn"], flip=flip)
+    return jsonify({"success": ok, **tracker.get_status()})
+
+@app.route('/api/tracker/stop', methods=['POST'])
+def tracker_stop():
+    tracker.stop()
+    return jsonify({"success": True})
 
 # === Web Routes ===
 
@@ -203,6 +296,58 @@ def cam_mjpeg(cam_id):
     def generate():
         for frame in conn.mjpeg_frames():
             yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/api/<int:cam_id>/mjpeg/annotated')
+def cam_mjpeg_annotated(cam_id):
+    """MJPEG stream with face-detection boxes drawn on each frame."""
+    import cv2, numpy as np
+    c = get_cam(cam_id)
+    if not c:
+        return jsonify({"error": f"Camera {cam_id} not found"}), 404
+    conn = c["conn"]
+
+    def generate():
+        for frame_bytes in conn.mjpeg_frames():
+            status = tracker.get_status()
+            # Only annotate when this camera is being tracked
+            if status.get('active') and status.get('cam_id') == cam_id:
+                arr = np.frombuffer(frame_bytes, dtype=np.uint8)
+                frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+                if frame is not None:
+                    fh, fw = frame.shape[:2]
+
+                    # Flip to match the tracker's view (so boxes line up)
+                    if status.get('flip'):
+                        frame = cv2.flip(frame, -1)
+
+                    # Draw face bounding box
+                    if status.get('detected') and status.get('bbox'):
+                        x, y, w, h = status['bbox']
+                        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                        ox = status['offset_x']
+                        oy = status['offset_y']
+                        cv2.putText(frame, f"x:{ox:+.2f} y:{oy:+.2f}",
+                                    (x, max(y - 6, 12)),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1,
+                                    cv2.LINE_AA)
+                    else:
+                        state_label = "LOCKED — no face" if status.get('state') == 'tracking' else "Scanning..."
+                        cv2.putText(frame, state_label,
+                                    (10, 24),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 180, 255), 1,
+                                    cv2.LINE_AA)
+
+                    # Center crosshair
+                    cx, cy = fw // 2, fh // 2
+                    cv2.line(frame, (cx - 20, cy), (cx + 20, cy), (0, 200, 255), 1)
+                    cv2.line(frame, (cx, cy - 20), (cx, cy + 20), (0, 200, 255), 1)
+
+                    _, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                    frame_bytes = buf.tobytes()
+
+            yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+
     return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/api/<int:cam_id>/stream/stop', methods=['POST'])
