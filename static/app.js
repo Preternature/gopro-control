@@ -1010,6 +1010,239 @@ async function tlLoad(lightId, input) {
     input.value = '';
 }
 
+// ─── Master Timeline ───────────────────────────────────────────────────────────
+
+const _mt = {
+    tracks:      { rail: [], cam1: [], cam2: [] },
+    lightTracks: {},   // str(lightId) → [{start,duration,color,brightness,transition:{mode,duration}}]
+    duration:    60,
+    loop:        false,
+    selected:    null, // {track, idx}
+};
+
+// Track config (cameras are stubs until next session)
+const MT_TRACK_DEFS = [
+    { key: 'rail', label: 'Rail',     color: '#4caf50', stub: false },
+    { key: 'cam1', label: 'Camera 1', color: '#0099ff', stub: true  },
+    { key: 'cam2', label: 'Camera 2', color: '#ff9900', stub: true  },
+];
+
+function _mtPx(sec) {
+    const total = parseFloat(document.getElementById('mt-duration')?.value || _mt.duration) || 60;
+    return (sec / total * 100).toFixed(3) + '%';
+}
+
+function mtRender() {
+    const tl = document.getElementById('mt-timeline');
+    if (!tl) return;
+    const total = parseFloat(document.getElementById('mt-duration')?.value || _mt.duration) || 60;
+
+    // Build track rows
+    const allTracks = [
+        ...MT_TRACK_DEFS,
+        ...Object.keys(_mt.lightTracks).map(lid => ({
+            key: 'light_' + lid, label: 'Light ' + lid, color: null, stub: false, lightId: lid
+        }))
+    ];
+
+    // Time ruler
+    const rulerTicks = Math.min(20, Math.floor(total));
+    const tickStep   = Math.ceil(total / rulerTicks);
+    let ruler = '<div class="mt-ruler">';
+    for (let t = 0; t <= total; t += tickStep) {
+        ruler += `<span class="mt-tick" style="left:${(t/total*100).toFixed(2)}%">${t}s</span>`;
+    }
+    ruler += '</div>';
+
+    const rows = allTracks.map(td => {
+        const blocks = td.lightId
+            ? (_mt.lightTracks[td.lightId] || [])
+            : (_mt.tracks[td.key] || []);
+        const blocksHtml = blocks.map((b, i) => {
+            const left  = (b.start / total * 100).toFixed(3);
+            const width = (b.duration / total * 100).toFixed(3);
+            const sel   = _mt.selected?.track === td.key && _mt.selected?.idx === i;
+            const bgCol = td.lightId
+                ? (() => { const bri=b.brightness/100; const r=parseInt(b.color.slice(1,3),16), g=parseInt(b.color.slice(3,5),16), bl=parseInt(b.color.slice(5,7),16); return `rgb(${Math.round(r*bri)},${Math.round(g*bri)},${Math.round(bl*bri)})`; })()
+                : (td.color || '#666');
+            const label = td.lightId
+                ? `${b.duration}s`
+                : (b.action || b.direction || '?') + ` ${b.duration}s`;
+            return `<div class="mt-block${sel ? ' mt-block-sel':''}" style="left:${left}%;width:${width}%;background:${bgCol}"
+                onclick="mtSelectBlock('${td.key}',${i})" title="${label}">
+                <span class="mt-block-label">${label}</span>
+            </div>`;
+        }).join('');
+        const stubNote = td.stub ? ' <span class="mt-stub">(coming soon)</span>' : '';
+        return `<div class="mt-row">
+            <div class="mt-row-label">${td.label}${stubNote}</div>
+            <div class="mt-row-canvas" id="mt-canvas-${td.key}">
+                ${blocksHtml}
+                ${!td.stub ? `<button class="mt-add-btn" onclick="mtAddBlock('${td.key}'${td.lightId ? ",'"+td.lightId+"'" : ''})">+</button>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+
+    tl.innerHTML = ruler + rows;
+    mtRenderEditor();
+}
+
+function mtSelectBlock(track, idx) {
+    if (_mt.selected?.track === track && _mt.selected?.idx === idx) {
+        _mt.selected = null;
+    } else {
+        _mt.selected = { track, idx };
+    }
+    mtRender();
+}
+
+function mtRenderEditor() {
+    const editor = document.getElementById('mt-editor');
+    if (!editor) return;
+    const sel = _mt.selected;
+    if (!sel) { editor.innerHTML = ''; return; }
+
+    const isLight  = sel.track.startsWith('light_');
+    const lightId  = isLight ? sel.track.replace('light_','') : null;
+    const blocks   = isLight ? _mt.lightTracks[lightId] : _mt.tracks[sel.track];
+    const b        = blocks?.[sel.idx];
+    if (!b) { editor.innerHTML = ''; return; }
+
+    let html = `<div class="tl-edit-row">
+        <label>Start(s) <input type="number" min="0" step="0.1" value="${b.start}" style="width:65px"
+            onchange="mtBlockProp('${sel.track}',${sel.idx},'start',+this.value)"></label>
+        <label>Dur(s) <input type="number" min="0.1" step="0.1" value="${b.duration}" style="width:65px"
+            onchange="mtBlockProp('${sel.track}',${sel.idx},'duration',+this.value)"></label>`;
+
+    if (isLight) {
+        const tr = b.transition || { mode: 'cut', duration: 1.0 };
+        const trOpts = TL_TRANSITION_MODES.map(m =>
+            `<option value="${m}"${tr.mode===m?' selected':''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`
+        ).join('');
+        html += `
+        <label>Color <input type="color" value="${b.color}" onchange="mtBlockProp('${sel.track}',${sel.idx},'color',this.value)"></label>
+        <label>Bri <input type="range" min="0" max="100" value="${b.brightness}" style="width:80px"
+            oninput="mtBlockProp('${sel.track}',${sel.idx},'brightness',+this.value);this.nextSibling.textContent=this.value+'%'"><span>${b.brightness}%</span></label>
+        <label>Transition <select onchange="mtTrProp('${sel.track}',${sel.idx},'mode',this.value)">${trOpts}</select></label>
+        <label>Tr dur <input type="number" min="0.1" step="0.1" value="${tr.duration}" style="width:55px"
+            onchange="mtTrProp('${sel.track}',${sel.idx},'duration',+this.value)"></label>`;
+    } else if (sel.track === 'rail') {
+        const dirOpts = ['forward','backward'].map(d =>
+            `<option value="${d}"${b.direction===d?' selected':''}>${d.charAt(0).toUpperCase()+d.slice(1)}</option>`
+        ).join('');
+        html += `
+        <label>Direction <select onchange="mtBlockProp('${sel.track}',${sel.idx},'direction',this.value)">${dirOpts}</select></label>
+        <label>Speed(μs) <input type="number" min="10" max="2000" value="${b.speed||91}" style="width:65px"
+            onchange="mtBlockProp('${sel.track}',${sel.idx},'speed',+this.value)"></label>`;
+    }
+
+    html += `<button class="btn btn-sm btn-danger" onclick="mtDeleteBlock('${sel.track}',${sel.idx})">Delete</button></div>`;
+    editor.innerHTML = html;
+}
+
+function mtBlockProp(track, idx, key, val) {
+    const isLight = track.startsWith('light_');
+    const lid     = isLight ? track.replace('light_','') : null;
+    const blocks  = isLight ? _mt.lightTracks[lid] : _mt.tracks[track];
+    if (blocks?.[idx] !== undefined) { blocks[idx][key] = val; mtRender(); }
+}
+
+function mtTrProp(track, idx, key, val) {
+    const isLight = track.startsWith('light_');
+    const lid     = isLight ? track.replace('light_','') : null;
+    const blocks  = isLight ? _mt.lightTracks[lid] : _mt.tracks[track];
+    if (blocks?.[idx]) {
+        if (!blocks[idx].transition) blocks[idx].transition = { mode: 'cut', duration: 1.0 };
+        blocks[idx].transition[key] = val;
+        mtRender();
+    }
+}
+
+function mtAddBlock(track, lightId = null) {
+    const isLight = !!lightId;
+    if (isLight) {
+        if (!_mt.lightTracks[lightId]) _mt.lightTracks[lightId] = [];
+        const blocks = _mt.lightTracks[lightId];
+        const last   = blocks[blocks.length - 1];
+        const start  = last ? last.start + last.duration : 0;
+        blocks.push({ start, duration: 5.0, color: last?.color || '#ff0000', brightness: last?.brightness ?? 100,
+                      transition: { mode: 'cut', duration: 1.0 } });
+    } else if (track === 'rail') {
+        const blocks = _mt.tracks.rail;
+        const last   = blocks[blocks.length - 1];
+        const start  = last ? last.start + last.duration : 0;
+        blocks.push({ start, duration: 10.0, direction: 'forward', speed: 91 });
+    }
+    _mt.selected = null;
+    mtRender();
+}
+
+function mtDeleteBlock(track, idx) {
+    const isLight = track.startsWith('light_');
+    const lid     = isLight ? track.replace('light_','') : null;
+    const blocks  = isLight ? _mt.lightTracks[lid] : _mt.tracks[track];
+    if (blocks) { blocks.splice(idx, 1); _mt.selected = null; mtRender(); }
+}
+
+async function mtPlay() {
+    // Push current state to server
+    const dur = parseFloat(document.getElementById('mt-duration')?.value || 60);
+    _mt.duration = dur;
+    await fetch('/api/master-timeline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tracks: _mt.tracks, light_tracks: _mt.lightTracks,
+                               duration: _mt.duration, loop: _mt.loop })
+    });
+    await fetch('/api/master-timeline/play', { method: 'POST' });
+    showNotification('Master timeline playing', 'info');
+}
+
+async function mtStop() {
+    await fetch('/api/master-timeline/stop', { method: 'POST' });
+}
+
+function mtToggleLoop() {
+    _mt.loop = !_mt.loop;
+    const btn = document.getElementById('mt-loop-btn');
+    if (btn) btn.classList.toggle('tl-loop-on', _mt.loop);
+}
+
+function mtSave() {
+    const blob = new Blob([JSON.stringify({
+        tracks: _mt.tracks, lightTracks: _mt.lightTracks,
+        duration: _mt.duration, loop: _mt.loop
+    }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'master_timeline.json';
+    a.click();
+}
+
+async function mtLoad(input) {
+    const file = input.files[0];
+    if (!file) return;
+    let data;
+    try { data = JSON.parse(await file.text()); } catch { showNotification('Invalid JSON', 'error'); return; }
+    _mt.tracks      = data.tracks      ?? { rail: [], cam1: [], cam2: [] };
+    _mt.lightTracks = data.lightTracks ?? {};
+    _mt.duration    = data.duration    ?? 60;
+    _mt.loop        = data.loop        ?? false;
+    _mt.selected    = null;
+    const durEl = document.getElementById('mt-duration');
+    if (durEl) durEl.value = _mt.duration;
+    const loopBtn = document.getElementById('mt-loop-btn');
+    if (loopBtn) loopBtn.classList.toggle('tl-loop-on', _mt.loop);
+    mtRender();
+    showNotification(`Loaded master timeline`, 'success');
+    input.value = '';
+}
+
+function mtAddLightTrack(lightId) {
+    const lid = String(lightId);
+    if (!_mt.lightTracks[lid]) { _mt.lightTracks[lid] = []; mtRender(); }
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -1022,4 +1255,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (s2) updateCamStatus(2, s2.connected, s2.ip, s2.type);
     if (ard) updateArduinoStatus(ard);
     await renderLights();
+    mtRender();
 });

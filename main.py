@@ -233,6 +233,123 @@ def _perform_transition(ls: dict, from_block: dict, to_block: dict, tr: dict, tl
         _rgb_send(f"RGB:{int(cur_r*scale)},{int(cur_g*scale)},{int(cur_b*scale)}")
         time.sleep(step_time)
 
+# ── Master Timeline ────────────────────────────────────────────────────────────
+# tracks.rail:  [{start, duration, direction ("forward"|"backward"), speed}]
+# tracks.cam1/cam2: [{start, duration, action ("photo"|"video_start"|"video_stop")}]
+# light_tracks: {str(light_id): [{start, duration, color, brightness, transition:{mode,duration}}]}
+
+_master_tl: dict = {
+    "tracks":       {"rail": [], "cam1": [], "cam2": []},
+    "light_tracks": {},
+    "duration":     60.0,
+    "loop":         False,
+    "playing":      False,
+    "_stop":        False,
+}
+
+def _tl_tr_to_server(mode: str, dur: float) -> dict:
+    if mode == "fade":     return {"color_mode": "gradual",       "brightness_mode": "gradual",       "duration": dur}
+    if mode == "dissolve": return {"color_mode": "gradual",       "brightness_mode": "instant_start", "duration": dur}
+    return                        {"color_mode": "instant_start", "brightness_mode": "instant_start", "duration": 0.0}
+
+def _compile_master_events() -> list:
+    evs = []
+    for blk in _master_tl["tracks"].get("rail", []):
+        evs.append({"time": blk["start"], "type": "rail", "block": blk})
+    for track_key, cam_id in [("cam1", 1), ("cam2", 2)]:
+        for blk in _master_tl["tracks"].get(track_key, []):
+            evs.append({"time": blk["start"], "type": "camera", "cam_id": cam_id, "block": blk})
+    for lid_str, blocks in _master_tl["light_tracks"].items():
+        lid = int(lid_str)
+        ls  = lights.get(lid)
+        if not ls: continue
+        for i, blk in enumerate(blocks):
+            evs.append({"time": blk["start"], "type": "light", "light_id": lid, "ls": ls,
+                        "block": blk, "next_block": blocks[i+1] if i+1 < len(blocks) else None})
+    evs.sort(key=lambda e: e["time"])
+    return evs
+
+def _fire_master_light(ev: dict):
+    ls, block, next_block = ev["ls"], ev["block"], ev.get("next_block")
+    r, g, b = _hex_to_rgb(block["color"])
+    scale   = block["brightness"] / 100.0
+    _rgb_send(f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}")
+    _rgb_send(f"RGB:{int(r*scale)},{int(g*scale)},{int(b*scale)}")
+    if next_block:
+        tr_ui  = block.get("transition", {"mode": "cut", "duration": 1.0})
+        tr     = _tl_tr_to_server(tr_ui.get("mode", "cut"), float(tr_ui.get("duration", 1.0)))
+        tr_dur = tr["duration"] if tr["color_mode"] == "gradual" or tr["brightness_mode"] == "gradual" else 0.0
+        wait   = max(0.0, block["duration"] - tr_dur)
+        if wait > 0: time.sleep(wait)
+        if not _master_tl["_stop"]:
+            _perform_transition(ls,
+                {"color": block["color"],      "brightness": block["brightness"]},
+                {"color": next_block["color"], "brightness": next_block["brightness"]},
+                tr, _master_tl)
+
+def _master_playback():
+    _master_tl["playing"] = True
+    _master_tl["_stop"]   = False
+    while True:
+        t0     = time.time()
+        events = _compile_master_events()
+        fired  = [False] * len(events)
+        while not _master_tl["_stop"]:
+            now = time.time() - t0
+            for i, ev in enumerate(events):
+                if not fired[i] and now >= ev["time"]:
+                    fired[i] = True
+                    etype = ev["type"]
+                    if etype == "rail":
+                        blk = ev["block"]
+                        arduino.send(f"S{int(blk.get('speed',91))},{int(blk['duration']*1000)}")
+                        time.sleep(0.05)
+                        arduino.send("U" if blk.get("direction","forward")=="forward" else "D")
+                    elif etype == "camera":
+                        pass  # camera actions wired up next session
+                    elif etype == "light":
+                        threading.Thread(target=_fire_master_light, args=(ev,), daemon=True).start()
+            if all(fired) and (time.time() - t0) >= _master_tl["duration"]:
+                break
+            time.sleep(0.02)
+        if _master_tl["_stop"] or not _master_tl["loop"]: break
+    # Turn off lights at end
+    for lid_str, blocks in _master_tl["light_tracks"].items():
+        ls = lights.get(int(lid_str))
+        if ls:
+            _rgb_send(f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}")
+            _rgb_send("RGB:0,0,0")
+    arduino.send("X")
+    _master_tl["playing"] = False
+
+@app.route('/api/master-timeline', methods=['GET'])
+def master_tl_get():
+    return jsonify({k: _master_tl[k] for k in ("tracks","light_tracks","duration","loop","playing")})
+
+@app.route('/api/master-timeline', methods=['POST'])
+def master_tl_set():
+    data = request.json or {}
+    if "tracks"       in data: _master_tl["tracks"]       = data["tracks"]
+    if "light_tracks" in data: _master_tl["light_tracks"] = data["light_tracks"]
+    if "duration"     in data: _master_tl["duration"]     = float(data["duration"])
+    if "loop"         in data: _master_tl["loop"]         = bool(data["loop"])
+    return jsonify({"success": True})
+
+@app.route('/api/master-timeline/play', methods=['POST'])
+def master_tl_play():
+    if _master_tl["playing"]:
+        _master_tl["_stop"] = True
+        time.sleep(0.15)
+    threading.Thread(target=_master_playback, daemon=True).start()
+    return jsonify({"success": True})
+
+@app.route('/api/master-timeline/stop', methods=['POST'])
+def master_tl_stop():
+    _master_tl["_stop"]   = True
+    _master_tl["playing"] = False
+    arduino.send("X")
+    return jsonify({"success": True})
+
 # ── Arduino Routes ──────────────────────────────────────────────────────────
 
 @app.route('/api/arduino/status')

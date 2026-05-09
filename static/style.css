@@ -829,9 +829,271 @@ input[type="number"] {
     font-size: 0.78rem;
 }
 
+/* ── Master Timeline ── */
+.mt-section {
+    background: var(--bg-card);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 18px;
+    border-top: 3px solid #00bcd4;
+}
+
+.mt-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.mt-header h2 { font-size: 1rem; }
+
+.mt-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.mt-toolbar label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* Timeline container — horizontally scrollable */
+.mt-timeline {
+    background: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow-x: auto;
+    overflow-y: visible;
+    min-height: 60px;
+    margin-bottom: 10px;
+    position: relative;
+}
+
+/* Time ruler row */
+.mt-ruler {
+    display: flex;
+    align-items: center;
+    height: 22px;
+    background: #1e2a2e;
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding-left: 110px; /* align with track canvases */
+    gap: 0;
+}
+
+.mt-tick {
+    font-size: 0.62rem;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    padding-left: 3px;
+    border-left: 1px solid #333;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    user-select: none;
+}
+
+.mt-tick:first-child { border-left: none; }
+
+/* One track row */
+.mt-row {
+    display: flex;
+    align-items: stretch;
+    min-height: 42px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.mt-row:last-child { border-bottom: none; }
+
+/* Label column — fixed width */
+.mt-row-label {
+    width: 110px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: #1e2a2e;
+    border-right: 1px solid var(--border-color);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    position: sticky;
+    left: 0;
+    z-index: 2;
+}
+
+/* Block canvas — proportional drag/click area */
+.mt-row-canvas {
+    flex: 1;
+    display: flex;
+    align-items: stretch;
+    position: relative;
+    min-height: 42px;
+    cursor: default;
+    overflow: hidden;
+}
+
+/* Clickable add-zone for empty tracks */
+.mt-row-canvas.mt-empty {
+    cursor: pointer;
+    background: repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 39px,
+        rgba(255,255,255,0.025) 39px,
+        rgba(255,255,255,0.025) 40px
+    );
+}
+
+.mt-row-canvas.mt-empty:hover { background-color: rgba(0,188,212,0.05); }
+
+/* A single block */
+.mt-block {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: pointer;
+    opacity: 0.88;
+    transition: opacity 0.1s, outline 0.1s;
+    border: 1px solid rgba(255,255,255,0.12);
+    user-select: none;
+}
+
+.mt-block:hover  { opacity: 1; }
+.mt-block-sel    { outline: 2px solid #fff; opacity: 1; z-index: 1; }
+
+.mt-block-label {
+    font-size: 0.62rem;
+    color: rgba(255,255,255,0.85);
+    text-shadow: 0 0 4px rgba(0,0,0,0.9);
+    pointer-events: none;
+    overflow: hidden;
+    white-space: nowrap;
+    padding: 0 4px;
+}
+
+/* "+" add-block button at end of a non-empty row */
+.mt-add-btn {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(0,188,212,0.25);
+    border: 1px solid #00bcd4;
+    color: #00bcd4;
+    font-size: 1rem;
+    line-height: 20px;
+    text-align: center;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.15s, background 0.15s;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mt-add-btn:hover { opacity: 1; background: rgba(0,188,212,0.45); }
+
+/* Block properties editor below the timeline */
+.mt-editor {
+    background: var(--bg-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.82rem;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.mt-editor:empty { display: none; }
+
+.mt-edit-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.mt-edit-row label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.mt-edit-row select {
+    background: var(--bg-card);
+    color: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 0.78rem;
+}
+
+.mt-tr-row {
+    border-top: 1px solid var(--border-color);
+    padding-top: 8px;
+}
+
+.mt-tr-label {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Stub / empty-state message inside .mt-timeline when no tracks */
+.mt-stub {
+    padding: 28px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+/* Playhead */
+.mt-playhead {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #00bcd4;
+    z-index: 10;
+    pointer-events: none;
+    left: 110px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.mt-playhead.visible { opacity: 1; }
+
 @media (max-width: 600px) {
     .container { padding: 10px; }
     header { flex-direction: column; gap: 10px; }
     .broadcast-section { gap: 8px; }
     .lights-grid { grid-template-columns: 1fr; }
+    .mt-row-label { width: 80px; font-size: 0.68rem; }
+    .mt-ruler { padding-left: 80px; }
 }

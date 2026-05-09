@@ -346,6 +346,29 @@
             </div>
         </section>
 
+        <!-- Master Timeline -->
+        <section class="mt-section" id="mt-section">
+            <div class="mt-header">
+                <h2>Master Timeline</h2>
+                <div class="mt-toolbar">
+                    <button class="btn btn-play btn-sm" onclick="mtPlay()">&#9654; Play</button>
+                    <button class="btn btn-secondary btn-sm" onclick="mtStop()">&#9632; Stop</button>
+                    <button class="btn btn-sm tl-loop-btn" id="mt-loop-btn" onclick="mtToggleLoop()">&#8635; Loop</button>
+                    <label style="display:flex;align-items:center;gap:4px;font-size:0.8rem">
+                        Duration <input type="number" id="mt-duration" value="60" min="1" style="width:55px"> s
+                    </label>
+                    <button class="btn btn-secondary btn-sm" onclick="mtSave()">Save</button>
+                    <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
+                        Load<input type="file" accept=".json" style="display:none" onchange="mtLoad(this)">
+                    </label>
+                </div>
+            </div>
+            <div class="mt-timeline" id="mt-timeline">
+                <!-- track rows populated by JS -->
+            </div>
+            <div class="mt-editor" id="mt-editor"></div>
+        </section>
+
     </div><!-- end container -->
 
     <!-- Notifications -->
