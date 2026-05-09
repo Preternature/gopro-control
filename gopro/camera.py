@@ -11,31 +11,65 @@ from .connection import GoProConnection
 class GoProCamera:
     """Camera control operations for GoPro Hero 12"""
 
+    # GoPro preset group IDs
+    _GROUP_VIDEO      = 1000
+    _GROUP_PHOTO      = 1001
+    _GROUP_TIMELAPSE  = 1002
+
     def __init__(self, connection: GoProConnection):
         self.conn = connection
         self.is_recording = False
         self.timer_thread = None
         self.timer_running = False
+        self._preset_cache: dict = {}  # group_id -> first preset id
+
+    # === Preset discovery ===
+
+    def _first_preset_id(self, group_id: int) -> Optional[int]:
+        """Return the first preset ID in the given group, cached after first query."""
+        if group_id in self._preset_cache:
+            return self._preset_cache[group_id]
+        print(f"[{self.conn.name}] Fetching presets to find group {group_id}...")
+        result = self.conn.send_command("/gopro/camera/presets/get")
+        if not result:
+            print(f"[{self.conn.name}] presets/get returned nothing — camera not connected?")
+            return None
+        groups = result.get("presetGroupArray", [])
+        print(f"[{self.conn.name}] Got {len(groups)} preset groups: ids={[g.get('id') for g in groups]}")
+        for group in groups:
+            gid = group.get("id")
+            presets = group.get("presetArray", [])
+            if presets:
+                self._preset_cache[gid] = presets[0].get("id")
+                print(f"[{self.conn.name}]   group {gid} -> first preset id {self._preset_cache[gid]}")
+        found = self._preset_cache.get(group_id)
+        if found is None:
+            print(f"[{self.conn.name}] Group {group_id} NOT found. Available groups: {list(self._preset_cache.keys())}")
+        return found
+
+    def _load_preset_group(self, group_id: int) -> bool:
+        pid = self._first_preset_id(group_id)
+        if pid is None:
+            print(f"[{self.conn.name}] Could not find preset for group {group_id}")
+            return False
+        print(f"[{self.conn.name}] Loading preset id={pid} (group {group_id})...")
+        result = self.conn.send_command("/gopro/camera/presets/load", {"id": pid})
+        if result is None:
+            print(f"[{self.conn.name}] presets/load FAILED (camera returned error or timed out)")
+            return False
+        print(f"[{self.conn.name}] presets/load OK: {result}")
+        return True
 
     # === Mode Control ===
 
     def set_mode_video(self) -> bool:
-        """Set camera to video mode"""
-        # Preset 0 = Standard video
-        result = self.conn.send_command("/gopro/camera/presets/load", {"id": 0})
-        return result is not None
+        return self._load_preset_group(self._GROUP_VIDEO)
 
     def set_mode_photo(self) -> bool:
-        """Set camera to photo mode"""
-        # Preset 1 = Photo
-        result = self.conn.send_command("/gopro/camera/presets/load", {"id": 1})
-        return result is not None
+        return self._load_preset_group(self._GROUP_PHOTO)
 
     def set_mode_timelapse(self) -> bool:
-        """Set camera to timelapse mode"""
-        # Preset 2 = Timelapse
-        result = self.conn.send_command("/gopro/camera/presets/load", {"id": 2})
-        return result is not None
+        return self._load_preset_group(self._GROUP_TIMELAPSE)
 
     # === Shutter Control ===
 
@@ -55,13 +89,20 @@ class GoProCamera:
 
     def take_photo(self) -> bool:
         """Take a single photo"""
-        self.set_mode_photo()
+        print(f"[{self.conn.name}] take_photo() start")
+        if not self.set_mode_photo():
+            print(f"[{self.conn.name}] take_photo: set_mode_photo FAILED")
+            return False
         time.sleep(0.5)  # Wait for mode change
-        return self.shutter_on()
+        print(f"[{self.conn.name}] take_photo: firing shutter...")
+        result = self.shutter_on()
+        print(f"[{self.conn.name}] take_photo: shutter_on returned {result}")
+        return result
 
     def start_video(self) -> bool:
         """Start video recording"""
-        self.set_mode_video()
+        if not self.set_mode_video():
+            return False
         time.sleep(0.5)
         result = self.shutter_on()
         if result:

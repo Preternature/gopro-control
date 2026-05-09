@@ -545,8 +545,293 @@ input[type="number"] {
     .cameras-grid { grid-template-columns: 1fr; }
 }
 
+/* ── Lights Section ── */
+.lights-section {
+    background: var(--bg-card);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 18px;
+    border-top: 3px solid #e65100;
+}
+
+.lights-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.lights-header h2 { font-size: 1rem; }
+
+.lights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+}
+
+.light-panel {
+    background: var(--bg-dark);
+    border-radius: 8px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 1px solid var(--border-color);
+}
+
+.light-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.light-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 1px dashed transparent;
+    cursor: text;
+    outline: none;
+    min-width: 60px;
+}
+.light-name:focus {
+    border-bottom-color: #e65100;
+    background: rgba(255,255,255,0.05);
+    padding: 0 3px;
+    border-radius: 3px 3px 0 0;
+}
+
+.light-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.light-pins-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.light-pins-row label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pin-input {
+    width: 46px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 3px 5px;
+    font-size: 0.8rem;
+    text-align: center;
+}
+
+.light-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: opacity 0.2s;
+}
+
+.light-color-row,
+.light-bri-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.light-color-row label,
+.light-bri-row label { min-width: 70px; }
+
+.light-color-row input[type="color"] {
+    width: 44px;
+    height: 28px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 0;
+    background: none;
+}
+
+.light-bri-row input[type="range"] {
+    flex: 1;
+    accent-color: #e65100;
+}
+
+.light-bri-row span {
+    min-width: 36px;
+    text-align: right;
+    color: var(--text-primary);
+    font-size: 0.8rem;
+}
+
+.light-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.preset-btn {
+    border: none;
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.light-effects {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+/* RGB Arduino section-level row */
+.rgb-arduino-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
+.rgb-status-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.port-select-sm {
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    padding: 3px 7px;
+    font-size: 0.8rem;
+    max-width: 130px;
+}
+
+/* Timeline (block-based) */
+.light-timeline {
+    border-top: 1px solid var(--border-color);
+    padding-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.btn-preview     { background: #2c3e50; color: #aaa; border: 1px solid #444; }
+.btn-preview-on  { background: #f39c12; color: #000; border: 1px solid #f39c12; font-weight: 600; }
+.btn-play { background: #27ae60; color: #fff; }
+
+.tl-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.tl-loop-btn  { background: #2c3e50; color: #aaa; border: 1px solid #444; }
+.tl-loop-on   { background: #8e44ad; color: #fff; border-color: #8e44ad; }
+
+.tl-canvas {
+    display: flex;
+    align-items: stretch;
+    height: 36px;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    min-height: 36px;
+    cursor: pointer;
+}
+
+.tl-empty {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    line-height: 36px;
+}
+
+.tl-block {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-width: 20px;
+    opacity: 0.85;
+    transition: opacity 0.1s, outline 0.1s;
+}
+.tl-block:hover { opacity: 1; }
+.tl-block-sel   { outline: 2px solid #fff; opacity: 1; z-index: 1; }
+
+.tl-block-label {
+    font-size: 0.65rem;
+    color: rgba(255,255,255,0.8);
+    text-shadow: 0 0 3px rgba(0,0,0,0.8);
+    pointer-events: none;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.tl-transition {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.08);
+    color: #888;
+    font-size: 0.65rem;
+    flex-shrink: 0;
+    min-width: 8px;
+}
+.tl-tr-gradual { background: rgba(255,255,255,0.15); color: #bbb; }
+
+.tl-editor {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 0.8rem;
+}
+.tl-editor:empty { display: none; }
+
+.tl-edit-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.tl-tr-row  { border-top: 1px solid var(--border-color); padding-top: 5px; }
+.tl-tr-label { color: var(--text-secondary); font-size: 0.75rem; }
+
+.tl-editor label { display: flex; align-items: center; gap: 4px; }
+.tl-editor select {
+    background: var(--bg-deeper);
+    color: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    padding: 2px 4px;
+    font-size: 0.78rem;
+}
+
 @media (max-width: 600px) {
     .container { padding: 10px; }
     header { flex-direction: column; gap: 10px; }
     .broadcast-section { gap: 8px; }
+    .lights-grid { grid-template-columns: 1fr; }
 }

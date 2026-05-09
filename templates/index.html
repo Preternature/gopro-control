@@ -70,6 +70,7 @@
                         <button class="btn btn-secondary btn-sm" id="cam1-btn-flip" onclick="toggleFlip(1)">Flip</button>
                         <button class="btn btn-secondary btn-sm" id="cam1-btn-track" onclick="toggleTracking(1)">Track</button>
                         <button class="btn btn-primary btn-sm" onclick="camAction(1, 'photo')">Photo</button>
+                        <button class="btn btn-record btn-sm" id="cam1-btn-rec-quick" onclick="quickRecord(1)">Record</button>
                     </div>
 
                     <!-- Video controls -->
@@ -162,6 +163,7 @@
                         <button class="btn btn-secondary btn-sm" id="cam2-btn-flip" onclick="toggleFlip(2)">Flip</button>
                         <button class="btn btn-secondary btn-sm" id="cam2-btn-track" onclick="toggleTracking(2)">Track</button>
                         <button class="btn btn-primary btn-sm" onclick="camAction(2, 'photo')">Photo</button>
+                        <button class="btn btn-record btn-sm" id="cam2-btn-rec-quick" onclick="quickRecord(2)">Record</button>
                     </div>
 
                     <!-- Video controls -->
@@ -330,6 +332,17 @@
             </div>
             <div class="playback-controls">
                 <button class="btn btn-secondary" onclick="closePlayback()">Close</button>
+            </div>
+        </section>
+
+        <!-- RGB Lights -->
+        <section class="lights-section" id="lights-section">
+            <div class="lights-header">
+                <h2>Lights</h2>
+                <button class="btn btn-sm btn-primary" onclick="addLight()">+ Add Light</button>
+            </div>
+            <div class="lights-grid" id="lights-grid">
+                <!-- populated by JS -->
             </div>
         </section>
 

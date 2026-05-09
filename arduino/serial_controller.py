@@ -157,3 +157,16 @@ class ArduinoController:
 
     def gimbal_sweep_both(self) -> bool:
         return self.send("a")
+
+    # ── RGB Lights ───────────────────────────────────────────────────────────
+    # Commands: RGB<n>:r,g,b  |  EFFECT<n>:RAINBOW/FADE/STOP
+    # where n is the light number (1, 2, …)
+
+    def rgb_color(self, light: int, r: int, g: int, b: int) -> bool:
+        return self.send(f"RGB{light}:{r},{g},{b}")
+
+    def rgb_effect(self, light: int, effect: str) -> bool:
+        return self.send(f"EFFECT{light}:{effect.upper()}")
+
+    def rgb_off(self, light: int) -> bool:
+        return self.send(f"RGB{light}:0,0,0")

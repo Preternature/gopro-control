@@ -149,6 +149,8 @@ async function camAction(camId, action) {
         el(`cam${camId}-btn-rec-start`).disabled = true;
         el(`cam${camId}-btn-rec-stop`).disabled = false;
         el(`cam${camId}-rec-indicator`).classList.remove('hidden');
+        const q = el(`cam${camId}-btn-rec-quick`);
+        if (q) { q.textContent = 'Stop'; q.classList.add('btn-danger'); q.classList.remove('btn-record'); }
         showNotification(`Cam ${camId}: Recording started`, 'success');
     }
 
@@ -157,8 +159,17 @@ async function camAction(camId, action) {
         el(`cam${camId}-btn-rec-start`).disabled = false;
         el(`cam${camId}-btn-rec-stop`).disabled = true;
         el(`cam${camId}-rec-indicator`).classList.add('hidden');
+        const q = el(`cam${camId}-btn-rec-quick`);
+        if (q) { q.textContent = 'Record'; q.classList.remove('btn-danger'); q.classList.add('btn-record'); }
         showNotification(`Cam ${camId}: Recording stopped`, 'info');
     }
+}
+
+async function quickRecord(camId) {
+    const recording = camState[camId].recording;
+    await camAction(camId, recording ? 'video-stop' : 'video-start');
+    const btn = el(`cam${camId}-btn-rec-quick`);
+    if (btn) btn.textContent = camState[camId].recording ? 'Stop' : 'Record';
 }
 
 async function timerPhoto(camId) {
@@ -366,11 +377,9 @@ async function toggleTracking(camId) {
         if (result?.success) {
             btn.textContent = 'Tracking';
             btn.style.background = 'var(--success-color)';
-            // Switch to annotated feed (already flipped server-side, clear CSS flip)
             const img = el(`cam${camId}-video`);
             if (img && img.style.display !== 'none') {
                 img.src = `/api/${camId}/mjpeg/annotated`;
-                img.style.transform = '';
             }
             showNotification(`Cam ${camId}: Person tracking active`, 'success');
             _startTrackPoll(camId);
@@ -403,7 +412,6 @@ function _stopTrackPoll(camId) {
     const img = el(`cam${camId}-video`);
     if (img && img.src.includes('/annotated')) {
         img.src = `/api/${camId}/mjpeg`;
-        if (camState[camId].flipped) img.style.transform = 'rotate(180deg)';
     }
 }
 
@@ -529,6 +537,479 @@ setInterval(async () => {
     if (s2) updateCamStatus(2, s2.connected, s2.ip, s2.type);
 }, 6000);
 
+// ─── RGB Lights ───────────────────────────────────────────────────────────────
+
+const _lightTimers = {};
+
+function debounceLightSend(key, fn, ms = 60) {
+    clearTimeout(_lightTimers[key]);
+    _lightTimers[key] = setTimeout(fn, ms);
+}
+
+async function lightApi(lightId, path, method = 'GET', body = null) {
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    try {
+        const r = await fetch(`/api/lights/${lightId}${path}`, opts);
+        return r.ok ? r.json() : null;
+    } catch { return null; }
+}
+
+function rgbToHex(r, g, b) {
+    return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+function hexToRgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+// ─── RGB Arduino Section-Level Connect ───────────────────────────────────────
+
+async function refreshLightPorts() {
+    const data = await fetch('/api/lights/ports').then(r => r.json()).catch(() => ({ ports: [] }));
+    const sel = document.getElementById('rgb-port-select');
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">-- port --</option>';
+    (data.ports || []).forEach(p => {
+        const o = document.createElement('option');
+        o.value = p; o.textContent = p;
+        if (p === cur) o.selected = true;
+        sel.appendChild(o);
+    });
+}
+
+async function connectRGBArduino() {
+    const port = document.getElementById('rgb-port-select')?.value;
+    if (!port) { showNotification('Select a port first', 'warning'); return; }
+    const data = await fetch('/api/lights/arduino/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ port })
+    }).then(r => r.json()).catch(() => null);
+    _updateRGBStatus(data);
+    showNotification(data?.connected ? `RGB Arduino connected on ${data.port}` : 'Connection failed', data?.connected ? 'success' : 'error');
+}
+
+async function disconnectRGBArduino() {
+    await fetch('/api/lights/arduino/disconnect', { method: 'POST' });
+    _updateRGBStatus({ connected: false });
+}
+
+function _updateRGBStatus(data) {
+    const dot = document.getElementById('rgb-status-dot');
+    const connBtn = document.getElementById('rgb-connect-btn');
+    const discBtn = document.getElementById('rgb-disconnect-btn');
+    const label = document.getElementById('rgb-status-label');
+    if (!dot) return;
+    const connected = data?.connected;
+    const fallback = data?.fallback;
+    if (connected) {
+        dot.className = 'status-dot connected';
+        if (label) label.textContent = data.port;
+    } else if (fallback) {
+        dot.className = 'status-dot connected';
+        if (label) label.textContent = `via gimbal (${data.fallback_port})`;
+    } else {
+        dot.className = 'status-dot disconnected';
+        if (label) label.textContent = '';
+    }
+    if (connBtn) connBtn.style.display = connected ? 'none' : '';
+    if (discBtn) discBtn.style.display = connected ? '' : 'none';
+}
+
+async function loadRGBStatus() {
+    const data = await fetch('/api/lights/arduino').then(r => r.json()).catch(() => null);
+    _updateRGBStatus(data);
+    if (data?.port) {
+        const sel = document.getElementById('rgb-port-select');
+        if (sel) {
+            // ensure current port is in the list
+            if (![...sel.options].find(o => o.value === data.port)) {
+                const o = document.createElement('option');
+                o.value = data.port; o.textContent = data.port;
+                sel.appendChild(o);
+            }
+            sel.value = data.port;
+        }
+    }
+}
+
+// ─── Light Panel Builder ──────────────────────────────────────────────────────
+
+function _buildLightPanel(status) {
+    const id = status.id;
+    const hex = rgbToHex(status.r ?? 255, status.g ?? 255, status.b ?? 255);
+    const bri = status.brightness ?? 100;
+    const name = (status.name || `Light ${id}`).replace(/</g, '&lt;');
+    return `
+    <div class="light-panel" id="light-panel-${id}">
+        <div class="light-panel-header">
+            <span class="light-name" id="light${id}-name" contenteditable="true"
+                onblur="saveLightName(${id})" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"
+                title="Click to rename">${name}</span>
+            <div style="display:flex;gap:5px;align-items:center">
+                <button class="btn btn-sm btn-preview" id="light${id}-preview-btn" onclick="togglePreview(${id})">Preview</button>
+                <button class="btn btn-sm btn-danger" style="padding:2px 7px;font-size:0.7rem" onclick="removeLight(${id})" title="Remove">✕</button>
+            </div>
+        </div>
+        <div class="light-pins-row">
+            <label>R pin <input type="number" class="pin-input" id="light${id}-pin-r" value="${status.pin_r ?? 9}" min="0" max="53"></label>
+            <label>G pin <input type="number" class="pin-input" id="light${id}-pin-g" value="${status.pin_g ?? 10}" min="0" max="53"></label>
+            <label>B pin <input type="number" class="pin-input" id="light${id}-pin-b" value="${status.pin_b ?? 11}" min="0" max="53"></label>
+            <button class="btn btn-sm btn-secondary" onclick="saveLightPins(${id})">Save Pins</button>
+        </div>
+        <div class="light-controls">
+            <div class="light-color-row">
+                <label>Color</label>
+                <input type="color" id="light${id}-color" value="${hex}" oninput="sendLightColor(${id})">
+            </div>
+            <div class="light-bri-row">
+                <label>Brightness</label>
+                <input type="range" id="light${id}-bri" min="0" max="100" value="${bri}"
+                    oninput="sendLightBrightness(${id})">
+                <span id="light${id}-bri-val">${bri}%</span>
+            </div>
+            <div class="light-presets">
+                <button class="btn btn-sm preset-btn" style="background:#fff;color:#000" onclick="setLightPreset(${id},255,255,255)">White</button>
+                <button class="btn btn-sm preset-btn" style="background:#ff6600" onclick="setLightPreset(${id},255,102,0)">Warm</button>
+                <button class="btn btn-sm preset-btn" style="background:#00f" onclick="setLightPreset(${id},0,0,255)">Blue</button>
+                <button class="btn btn-sm preset-btn" style="background:#f00" onclick="setLightPreset(${id},255,0,0)">Red</button>
+                <button class="btn btn-sm preset-btn" style="background:#00ff00;color:#000" onclick="setLightPreset(${id},0,255,0)">Green</button>
+                <button class="btn btn-sm preset-btn" style="background:#8800ff" onclick="setLightPreset(${id},136,0,255)">Purple</button>
+            </div>
+            <div class="light-effects">
+                <button class="btn btn-sm btn-secondary" onclick="sendLightEffect(${id},'RAINBOW')">Rainbow</button>
+                <button class="btn btn-sm btn-secondary" onclick="sendLightEffect(${id},'FADE')">Fade</button>
+                <button class="btn btn-sm btn-danger" onclick="sendLightEffect(${id},'STOP')">Stop FX</button>
+                <button class="btn btn-sm btn-danger" onclick="turnLightOff(${id})">Off</button>
+            </div>
+        </div>
+        <div class="light-timeline">
+            <div class="tl-toolbar">
+                <button class="btn btn-sm btn-primary" onclick="tlAddBlock(${id})">+ Block</button>
+                <button class="btn btn-sm btn-play" id="light${id}-tl-play" onclick="tlPlay(${id})">&#9654; Play</button>
+                <button class="btn btn-sm btn-secondary" onclick="tlStop(${id})">&#9632; Stop</button>
+                <button class="btn btn-sm tl-loop-btn" id="light${id}-tl-loop" onclick="tlToggleLoop(${id})" title="Loop">&#8635; Loop</button>
+                <button class="btn btn-sm btn-secondary" onclick="tlSave(${id})" title="Save JSON">Save</button>
+                <label class="btn btn-sm btn-secondary" style="cursor:pointer;margin:0" title="Load JSON">
+                    Load<input type="file" accept=".json" style="display:none" onchange="tlLoad(${id},this)">
+                </label>
+            </div>
+            <div class="tl-canvas" id="light${id}-tl-canvas"></div>
+            <div class="tl-editor" id="light${id}-tl-editor"></div>
+        </div>
+    </div>`;
+}
+
+async function renderLights() {
+    const data = await fetch('/api/lights').then(r => r.json()).catch(() => []);
+    const grid = document.getElementById('lights-grid');
+    if (grid) grid.innerHTML = data.map(_buildLightPanel).join('');
+}
+
+async function addLight() {
+    await fetch('/api/lights', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    await renderLights();
+}
+
+async function removeLight(lightId) {
+    await fetch(`/api/lights/${lightId}`, { method: 'DELETE' });
+    await renderLights();
+}
+
+async function saveLightName(lightId) {
+    const el = document.getElementById(`light${lightId}-name`);
+    if (!el) return;
+    const name = el.textContent.trim();
+    if (!name) return;
+    await fetch(`/api/lights/${lightId}/name`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+    });
+}
+
+async function saveLightPins(lightId) {
+    const pin_r = parseInt(document.getElementById(`light${lightId}-pin-r`)?.value ?? 9);
+    const pin_g = parseInt(document.getElementById(`light${lightId}-pin-g`)?.value ?? 10);
+    const pin_b = parseInt(document.getElementById(`light${lightId}-pin-b`)?.value ?? 11);
+    await lightApi(lightId, '/pins', 'POST', { pin_r, pin_g, pin_b });
+    showNotification(`Light ${lightId} pins saved`, 'success');
+}
+
+// ─── Preview toggle ───────────────────────────────────────────────────────────
+
+const _lightPreviewing = {};
+
+function togglePreview(lightId) {
+    const on = !_lightPreviewing[lightId];
+    _lightPreviewing[lightId] = on;
+    const btn = document.getElementById(`light${lightId}-preview-btn`);
+    if (btn) {
+        btn.textContent = on ? 'Preview ON' : 'Preview';
+        btn.classList.toggle('btn-preview-on', on);
+        btn.classList.toggle('btn-preview', !on);
+    }
+    if (on) {
+        // Immediately push current color to lights
+        const hex = document.getElementById(`light${lightId}-color`)?.value;
+        const bri = parseInt(document.getElementById(`light${lightId}-bri`)?.value ?? 100);
+        if (hex) {
+            const { r, g, b } = hexToRgb(hex);
+            lightApi(lightId, '/color', 'POST', { r, g, b }).then(() =>
+                lightApi(lightId, '/brightness', 'POST', { brightness: bri })
+            );
+        }
+    } else {
+        lightApi(lightId, '/off', 'POST');
+    }
+}
+
+function sendLightColor(lightId) {
+    const hex = document.getElementById(`light${lightId}-color`)?.value;
+    if (!hex) return;
+    const { r, g, b } = hexToRgb(hex);
+    if (_lightPreviewing[lightId]) {
+        debounceLightSend(`color${lightId}`, () => lightApi(lightId, '/color', 'POST', { r, g, b }));
+    }
+}
+
+function sendLightBrightness(lightId) {
+    const bri = parseInt(document.getElementById(`light${lightId}-bri`)?.value ?? 100);
+    const briVal = document.getElementById(`light${lightId}-bri-val`);
+    if (briVal) briVal.textContent = bri + '%';
+    if (_lightPreviewing[lightId]) {
+        debounceLightSend(`bri${lightId}`, () => lightApi(lightId, '/brightness', 'POST', { brightness: bri }));
+    }
+}
+
+function setLightPreset(lightId, r, g, b) {
+    const col = document.getElementById(`light${lightId}-color`);
+    if (col) col.value = rgbToHex(r, g, b);
+    if (_lightPreviewing[lightId]) {
+        lightApi(lightId, '/color', 'POST', { r, g, b });
+    }
+}
+
+function sendLightEffect(lightId, effect) {
+    lightApi(lightId, '/effect', 'POST', { effect });
+}
+
+function turnLightOff(lightId) {
+    _lightPreviewing[lightId] = false;
+    const btn = document.getElementById(`light${lightId}-preview-btn`);
+    if (btn) { btn.textContent = 'Preview'; btn.classList.remove('btn-preview-on'); btn.classList.add('btn-preview'); }
+    lightApi(lightId, '/off', 'POST');
+}
+
+// ─── Timeline (block-based) ───────────────────────────────────────────────────
+
+const _tlBlocks      = {};  // lightId → [{color, brightness, duration}]
+const _tlTransitions = {};  // lightId → [{color_mode, brightness_mode, duration}]
+const _tlSelected    = {};  // lightId → block index or null
+const _tlLoop        = {};  // lightId → bool
+
+const TL_TRANSITION_MODES = ['cut', 'fade', 'dissolve'];
+// cut     = instant_start/instant_start
+// fade    = gradual/gradual
+// dissolve= gradual color / instant_start brightness
+
+function _tlTrToServer(mode, dur) {
+    if (mode === 'fade')     return { color_mode: 'gradual',        brightness_mode: 'gradual',        duration: dur };
+    if (mode === 'dissolve') return { color_mode: 'gradual',        brightness_mode: 'instant_start',  duration: dur };
+    return                          { color_mode: 'instant_start',  brightness_mode: 'instant_start',  duration: dur };
+}
+
+function _tlTrFromServer(tr) {
+    if (!tr) return { mode: 'cut', duration: 1.0 };
+    if (tr.color_mode === 'gradual' && tr.brightness_mode === 'gradual')       return { mode: 'fade',     duration: tr.duration };
+    if (tr.color_mode === 'gradual' && tr.brightness_mode === 'instant_start') return { mode: 'dissolve', duration: tr.duration };
+    return { mode: 'cut', duration: tr.duration ?? 1.0 };
+}
+
+// Keep a local UI-friendly transitions array per light
+const _tlTrUI = {}; // lightId → [{mode, duration}]
+
+function _tlInit(lightId) {
+    if (!_tlBlocks[lightId])      _tlBlocks[lightId]      = [];
+    if (!_tlTrUI[lightId])        _tlTrUI[lightId]        = [];
+    if (!_tlLoop[lightId])        _tlLoop[lightId]        = false;
+    if (_tlSelected[lightId] === undefined) _tlSelected[lightId] = null;
+}
+
+function tlRenderCanvas(lightId) {
+    _tlInit(lightId);
+    const canvas = document.getElementById(`light${lightId}-tl-canvas`);
+    if (!canvas) return;
+    const blocks = _tlBlocks[lightId];
+    const trs    = _tlTrUI[lightId];
+    if (!blocks.length) {
+        canvas.innerHTML = '<span class="tl-empty">No blocks — click + Block to add</span>';
+        tlRenderEditor(lightId);
+        return;
+    }
+    const total = blocks.reduce((s, b) => s + b.duration, 0) + trs.reduce((s, t) => s + (t.mode !== 'cut' ? t.duration : 0), 0);
+    let html = '';
+    for (let i = 0; i < blocks.length; i++) {
+        const b = blocks[i];
+        const sel = _tlSelected[lightId] === i;
+        const bri = b.brightness / 100;
+        const r = parseInt(b.color.slice(1,3), 16), g = parseInt(b.color.slice(3,5), 16), bb = parseInt(b.color.slice(5,7), 16);
+        const dispCol = `rgb(${Math.round(r*bri)},${Math.round(g*bri)},${Math.round(bb*bri)})`;
+        const wPct = (b.duration / total * 100).toFixed(2);
+        html += `<div class="tl-block${sel ? ' tl-block-sel' : ''}" style="width:${wPct}%;background:${dispCol}"
+            onclick="tlSelectBlock(${lightId},${i})" title="${b.duration}s">
+            <span class="tl-block-label">${b.duration}s</span>
+        </div>`;
+        if (i < blocks.length - 1) {
+            const tr = trs[i] ?? { mode: 'cut', duration: 1.0 };
+            const trW = tr.mode !== 'cut' ? (tr.duration / total * 100).toFixed(2) : 0;
+            html += `<div class="tl-transition${trW > 0 ? ' tl-tr-gradual' : ''}" style="width:${Math.max(trW, 0.5)}%"
+                onclick="tlSelectBlock(${lightId},${i})" title="Transition: ${tr.mode}">
+                ${tr.mode !== 'cut' ? '~' : '|'}
+            </div>`;
+        }
+    }
+    canvas.innerHTML = html;
+    tlRenderEditor(lightId);
+}
+
+function tlRenderEditor(lightId) {
+    _tlInit(lightId);
+    const editor = document.getElementById(`light${lightId}-tl-editor`);
+    if (!editor) return;
+    const sel = _tlSelected[lightId];
+    const blocks = _tlBlocks[lightId];
+    if (sel === null || !blocks[sel]) {
+        editor.innerHTML = '';
+        return;
+    }
+    const b = blocks[sel];
+    const tr = sel > 0 ? (_tlTrUI[lightId][sel - 1] ?? { mode: 'cut', duration: 1.0 }) : null;
+    const trModeOpts = TL_TRANSITION_MODES.map(m =>
+        `<option value="${m}"${tr?.mode === m ? ' selected' : ''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`
+    ).join('');
+    editor.innerHTML = `
+        <div class="tl-edit-row">
+            <label>Color <input type="color" value="${b.color}" onchange="tlBlockProp(${lightId},${sel},'color',this.value)"></label>
+            <label>Bri <input type="range" min="0" max="100" value="${b.brightness}" style="width:80px"
+                oninput="tlBlockProp(${lightId},${sel},'brightness',+this.value);this.nextSibling.textContent=this.value+'%'"><span>${b.brightness}%</span></label>
+            <label>Dur(s) <input type="number" min="0.1" step="0.1" value="${b.duration}" style="width:60px"
+                onchange="tlBlockProp(${lightId},${sel},'duration',+this.value)"></label>
+            <button class="btn btn-sm btn-danger" onclick="tlDeleteBlock(${lightId},${sel})">Delete</button>
+        </div>${tr !== null ? `
+        <div class="tl-edit-row tl-tr-row">
+            <span class="tl-tr-label">Transition in:</span>
+            <select onchange="tlTrProp(${lightId},${sel-1},'mode',this.value)">${trModeOpts}</select>
+            <label>Dur(s) <input type="number" min="0.1" step="0.1" value="${tr.duration}" style="width:55px"
+                onchange="tlTrProp(${lightId},${sel-1},'duration',+this.value)"></label>
+        </div>` : ''}`;
+}
+
+function tlBlockProp(lightId, idx, key, val) {
+    _tlInit(lightId);
+    if (_tlBlocks[lightId][idx]) {
+        _tlBlocks[lightId][idx][key] = val;
+        tlRenderCanvas(lightId);
+    }
+}
+
+function tlTrProp(lightId, trIdx, key, val) {
+    _tlInit(lightId);
+    if (!_tlTrUI[lightId][trIdx]) _tlTrUI[lightId][trIdx] = { mode: 'cut', duration: 1.0 };
+    _tlTrUI[lightId][trIdx][key] = val;
+    tlRenderCanvas(lightId);
+}
+
+function tlSelectBlock(lightId, idx) {
+    _tlSelected[lightId] = (_tlSelected[lightId] === idx) ? null : idx;
+    tlRenderCanvas(lightId);
+}
+
+function tlAddBlock(lightId) {
+    _tlInit(lightId);
+    const blocks = _tlBlocks[lightId];
+    const last = blocks[blocks.length - 1];
+    blocks.push({ color: last?.color ?? '#0088ff', brightness: last?.brightness ?? 100, duration: 2.0 });
+    if (blocks.length > 1) {
+        _tlTrUI[lightId].push({ mode: 'cut', duration: 1.0 });
+    }
+    _tlSelected[lightId] = blocks.length - 1;
+    tlRenderCanvas(lightId);
+}
+
+function tlDeleteBlock(lightId, idx) {
+    _tlInit(lightId);
+    const blocks = _tlBlocks[lightId];
+    blocks.splice(idx, 1);
+    // Remove adjacent transition
+    if (_tlTrUI[lightId].length > 0) {
+        const trIdx = idx > 0 ? idx - 1 : 0;
+        if (_tlTrUI[lightId].length >= blocks.length) _tlTrUI[lightId].splice(trIdx, 1);
+    }
+    _tlSelected[lightId] = null;
+    tlRenderCanvas(lightId);
+}
+
+async function tlPlay(lightId) {
+    _tlInit(lightId);
+    // Push current state to server first
+    const blocks = _tlBlocks[lightId];
+    const transitions = _tlTrUI[lightId].map((tr, i) => _tlTrToServer(tr.mode, tr.duration));
+    await fetch(`/api/lights/${lightId}/timeline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocks, transitions, loop: _tlLoop[lightId] })
+    });
+    const res = await fetch(`/api/lights/${lightId}/timeline/play`, { method: 'POST' }).then(r => r.json()).catch(() => null);
+    if (res?.error) showNotification(res.error, 'error');
+    else showNotification(`Playing ${blocks.length} blocks`, 'info');
+}
+
+async function tlStop(lightId) {
+    await fetch(`/api/lights/${lightId}/timeline/stop`, { method: 'POST' });
+}
+
+function tlToggleLoop(lightId) {
+    _tlInit(lightId);
+    _tlLoop[lightId] = !_tlLoop[lightId];
+    const btn = document.getElementById(`light${lightId}-tl-loop`);
+    if (btn) btn.classList.toggle('tl-loop-on', _tlLoop[lightId]);
+}
+
+async function tlSave(lightId) {
+    _tlInit(lightId);
+    const data = {
+        blocks: _tlBlocks[lightId],
+        transitions: _tlTrUI[lightId],
+        loop: _tlLoop[lightId]
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `light${lightId}_timeline.json`;
+    a.click();
+}
+
+async function tlLoad(lightId, input) {
+    const file = input.files[0];
+    if (!file) return;
+    const text = await file.text();
+    let data;
+    try { data = JSON.parse(text); } catch { showNotification('Invalid JSON', 'error'); return; }
+    _tlInit(lightId);
+    _tlBlocks[lightId]      = data.blocks ?? [];
+    _tlTrUI[lightId]        = (data.transitions ?? []).map(t => t.mode !== undefined ? t : _tlTrFromServer(t));
+    _tlLoop[lightId]        = data.loop ?? false;
+    _tlSelected[lightId]    = null;
+    const loopBtn = document.getElementById(`light${lightId}-tl-loop`);
+    if (loopBtn) loopBtn.classList.toggle('tl-loop-on', _tlLoop[lightId]);
+    tlRenderCanvas(lightId);
+    showNotification(`Loaded ${_tlBlocks[lightId].length} blocks`, 'success');
+    input.value = '';
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -540,4 +1021,5 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (s1) updateCamStatus(1, s1.connected, s1.ip, s1.type);
     if (s2) updateCamStatus(2, s2.connected, s2.ip, s2.type);
     if (ard) updateArduinoStatus(ard);
+    await renderLights();
 });
