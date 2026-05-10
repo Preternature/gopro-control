@@ -77,7 +77,20 @@ tracker = PersonTracker(arduino)
 
 _rgb_ser: serial.Serial = None
 _rgb_port_name: str = None
-_rgb_lock = threading.Lock()
+_rgb_lock    = threading.Lock()
+_pin_seq_lock = threading.Lock()   # protects PINS+RGB pairs from interleaving
+
+def _send_color(ls: dict, r: int, g: int, b: int):
+    """Atomically send PINS+RGB so concurrent light threads can't interleave."""
+    with _pin_seq_lock:
+        _rgb_send(f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}")
+        _rgb_send(f"RGB:{r},{g},{b}")
+
+def _turn_off_light(ls: dict):
+    """Atomically turn off a single light."""
+    with _pin_seq_lock:
+        _rgb_send(f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}")
+        _rgb_send("RGB:0,0,0")
 
 def _rgb_connected() -> bool:
     return _rgb_ser is not None and _rgb_ser.is_open
@@ -210,7 +223,7 @@ def _perform_transition(ls: dict, from_block: dict, to_block: dict, tr: dict, tl
     # Apply instant_start immediately
     if color_mode == 'instant_start' or bri_mode == 'instant_start':
         scale = cur_bri / 100.0
-        _rgb_send(f"RGB:{int(cur_r*scale)},{int(cur_g*scale)},{int(cur_b*scale)}")
+        _send_color(ls, int(cur_r*scale), int(cur_g*scale), int(cur_b*scale))
 
     for step in range(steps + 1):
         if tl['_stop']: return
@@ -230,7 +243,7 @@ def _perform_transition(ls: dict, from_block: dict, to_block: dict, tr: dict, tl
             cur_bri = to_bri
 
         scale = cur_bri / 100.0
-        _rgb_send(f"RGB:{int(cur_r*scale)},{int(cur_g*scale)},{int(cur_b*scale)}")
+        _send_color(ls, int(cur_r*scale), int(cur_g*scale), int(cur_b*scale))
         time.sleep(step_time)
 
 # ── Master Timeline ────────────────────────────────────────────────────────────
@@ -273,9 +286,7 @@ def _fire_master_light(ev: dict):
     ls, block, next_block = ev["ls"], ev["block"], ev.get("next_block")
     r, g, b = _hex_to_rgb(block["color"])
     scale   = block["brightness"] / 100.0
-    _rgb_send(f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}")
-    time.sleep(0.05)
-    _rgb_send(f"RGB:{int(r*scale)},{int(g*scale)},{int(b*scale)}")
+    _send_color(ls, int(r*scale), int(g*scale), int(b*scale))
     if next_block:
         tr_ui  = block.get("transition", {"mode": "cut", "duration": 1.0})
         tr     = _tl_tr_to_server(tr_ui.get("mode", "cut"), float(tr_ui.get("duration", 1.0)))
@@ -287,6 +298,11 @@ def _fire_master_light(ev: dict):
                 {"color": block["color"],      "brightness": block["brightness"]},
                 {"color": next_block["color"], "brightness": next_block["brightness"]},
                 tr, _master_tl)
+    else:
+        # Last block — turn off after its duration elapses
+        time.sleep(float(block["duration"]))
+        if not _master_tl["_stop"]:
+            _turn_off_light(ls)
 
 def _master_playback():
     _master_tl["playing"] = True
@@ -315,11 +331,10 @@ def _master_playback():
             time.sleep(0.02)
         if _master_tl["_stop"] or not _master_tl["loop"]: break
     # Turn off lights at end
-    for lid_str, blocks in _master_tl["light_tracks"].items():
+    for lid_str in _master_tl["light_tracks"]:
         ls = lights.get(int(lid_str))
         if ls:
-            _rgb_send(f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}")
-            _rgb_send("RGB:0,0,0")
+            _turn_off_light(ls)
     arduino.send("X")
     _master_tl["playing"] = False
 
@@ -1034,7 +1049,6 @@ def light_timeline_play(light_id):
             return
         tl['playing'] = True
         tl['_stop'] = False
-        pins_cmd = f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}"
         while True:
             # Sort blocks by start time so freely-dragged blocks play in order
             blocks = sorted(tl['blocks'], key=lambda b: float(b.get('start', 0)))
@@ -1048,12 +1062,10 @@ def light_timeline_play(light_id):
                     if tl['_stop']: break
                     time.sleep(0.02)
                 if tl['_stop']: break
-                # Apply block color — delay 50ms between PINS and RGB so Arduino processes PINS first
+                # Apply block color atomically
                 r, g, b = _hex_to_rgb(block['color'])
                 scale = block['brightness'] / 100.0
-                _rgb_send(pins_cmd)
-                time.sleep(0.05)
-                _rgb_send(f"RGB:{int(r*scale)},{int(g*scale)},{int(b*scale)}")
+                _send_color(ls, int(r*scale), int(g*scale), int(b*scale))
                 # Wait until block ends (relative to play_start)
                 block_end = target_t + float(block['duration'])
                 while time.time() < block_end:
@@ -1066,9 +1078,7 @@ def light_timeline_play(light_id):
             if tl['_stop'] or not tl['loop']:
                 break
         if not tl['_stop']:
-            _rgb_send(pins_cmd)
-            time.sleep(0.05)
-            _rgb_send("RGB:0,0,0")
+            _turn_off_light(ls)
         tl['playing'] = False
 
     threading.Thread(target=_playback, daemon=True).start()

@@ -1066,7 +1066,7 @@ function _tlAbsoluteSegments(lightId) {
         const bl  = parseInt(b.color.slice(5, 7), 16);
         const rgb = `rgb(${Math.round(r*bri)},${Math.round(g*bri)},${Math.round(bl*bri)})`;
         const start = b.start ?? 0;
-        segs.push({ start, duration: b.duration, color: rgb, type: 'block' });
+        segs.push({ start, duration: b.duration, color: rgb, type: 'block', blockIdx: i });
         if (i < blocks.length - 1) {
             const tr = trs[i] ?? { mode: 'cut', duration: 1.0 };
             if (tr.mode !== 'cut' && tr.duration > 0) {
@@ -1460,8 +1460,10 @@ function mtRender() {
             if (s.type === 'block') {
                 return `<div class="mt-block"
                     style="left:${left}%;width:${width}%;background:${s.color};border-radius:3px"
-                    title="${s.duration}s">
-                    <span class="mt-block-label">${s.duration}s</span>
+                    onmousedown="mtLightBlockMouseDown(event,${lid},${s.blockIdx})"
+                    title="${s.duration.toFixed(1)}s">
+                    <span class="mt-block-label">${s.duration.toFixed(1)}s</span>
+                    <div class="mt-resize-handle" onmousedown="mtLightResizeMouseDown(event,${lid},${s.blockIdx})"></div>
                 </div>`;
             } else {
                 return `<div class="mt-tl-tr"
@@ -1474,7 +1476,7 @@ function mtRender() {
             : '';
         return `<div class="mt-row mt-row-light">
             <div class="mt-row-label" style="color:#e65100">${light.name || 'Light ' + lid}</div>
-            <div class="mt-row-canvas">${segsHtml}${empty}</div>
+            <div class="mt-row-canvas" id="mt-canvas-light-${lid}">${segsHtml}${empty}</div>
         </div>`;
     }).join('');
 
@@ -1618,23 +1620,74 @@ function mtResizeMouseDown(e, track, idx) {
     };
 }
 
+function mtLightBlockMouseDown(e, lightId, blockIdx) {
+    if (e.target.classList.contains('mt-resize-handle')) return;
+    e.preventDefault();
+    const canvas = document.getElementById(`mt-canvas-light-${lightId}`);
+    if (!canvas) return;
+    const block = _tlBlocks[lightId]?.[blockIdx];
+    if (!block) return;
+    _mtDrag = {
+        type:        'light-move',
+        lightId, blockIdx,
+        startX:      e.clientX,
+        origVal:     block.start ?? 0,
+        totalDur:    _mt.duration,
+        canvasWidth: canvas.getBoundingClientRect().width,
+    };
+}
+
+function mtLightResizeMouseDown(e, lightId, blockIdx) {
+    e.preventDefault();
+    e.stopPropagation();
+    const canvas = document.getElementById(`mt-canvas-light-${lightId}`);
+    if (!canvas) return;
+    const block = _tlBlocks[lightId]?.[blockIdx];
+    if (!block) return;
+    _mtDrag = {
+        type:        'light-resize',
+        lightId, blockIdx,
+        startX:      e.clientX,
+        origVal:     block.duration,
+        totalDur:    _mt.duration,
+        canvasWidth: canvas.getBoundingClientRect().width,
+    };
+}
+
 document.addEventListener('mousemove', e => {
     if (!_mtDrag) return;
-    const { type, track, idx, startX, origVal, totalDur, canvasWidth } = _mtDrag;
-    const dSec  = (e.clientX - startX) / canvasWidth * totalDur;
-    const block = _mt.tracks[track]?.[idx];
-    if (!block) return;
-    if (type === 'move') {
-        block.start = Math.max(0, Math.min(totalDur - block.duration, origVal + dSec));
-        block.start = Math.round(block.start * 10) / 10;
-    } else {
-        block.duration = Math.max(0.1, Math.round((origVal + dSec) * 10) / 10);
+    const { type, track, idx, lightId, blockIdx, startX, origVal, totalDur, canvasWidth } = _mtDrag;
+    const dSec = (e.clientX - startX) / canvasWidth * totalDur;
+    if (type === 'move' || type === 'resize') {
+        const block = _mt.tracks[track]?.[idx];
+        if (!block) return;
+        if (type === 'move') {
+            block.start = Math.max(0, Math.min(totalDur - block.duration, origVal + dSec));
+            block.start = Math.round(block.start * 10) / 10;
+        } else {
+            block.duration = Math.max(0.1, Math.round((origVal + dSec) * 10) / 10);
+        }
+        mtRender();
+    } else if (type === 'light-move' || type === 'light-resize') {
+        const block = _tlBlocks[lightId]?.[blockIdx];
+        if (!block) return;
+        if (type === 'light-move') {
+            block.start = Math.max(0, Math.min(totalDur - block.duration, origVal + dSec));
+            block.start = Math.round(block.start * 10) / 10;
+        } else {
+            block.duration = Math.max(0.1, Math.round((origVal + dSec) * 10) / 10);
+        }
+        tlRenderCanvas(lightId);  // also calls mtRender() internally
     }
-    mtRender();
 });
 
 document.addEventListener('mouseup', e => {
-    if (_mtDrag) { _mtDrag = null; }
+    if (_mtDrag) {
+        if (_mtDrag.type === 'light-move' || _mtDrag.type === 'light-resize') {
+            _tlAutoSave(_mtDrag.lightId);
+        }
+        _mtDrag = null;
+    }
 });
 
 async function mtPlay() {
