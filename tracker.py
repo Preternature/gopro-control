@@ -90,11 +90,17 @@ class PersonTracker:
 
         # Gimbal state — targets set by _adjust_gimbal, physical positions ramped by _run_gimbal_ramp
         self._base_angle = 90.0        # target pan angle (degrees)
-        self._cam_us = 1500.0          # target tilt (μs)
+        self._cam_us = 1900.0          # target tilt (μs)
         self._phys_angle = 90.0        # current physical servo position
         self._phys_us = 1500.0
         self._last_gimbal_cmd = 0.0
         self._ramp_thread: Optional[threading.Thread] = None
+
+        # Gimbal movement limits (degrees for pan, μs for tilt)
+        self.pan_min  = 45.0
+        self.pan_max  = 144.0
+        self.tilt_min = 1300.0
+        self.tilt_max = 2350.0
 
         # Tuning
         self.dead_zone = 0.15
@@ -163,6 +169,15 @@ class PersonTracker:
         self._pending_shifts.clear()
         self.cam_id = None
         self._connection = None
+
+    def set_limits(self, pan_min: float, pan_max: float, tilt_min: float, tilt_max: float):
+        self.pan_min  = float(pan_min)
+        self.pan_max  = float(pan_max)
+        self.tilt_min = float(tilt_min)
+        self.tilt_max = float(tilt_max)
+        # Clamp current targets to new limits immediately
+        self._base_angle = max(self.pan_min,  min(self.pan_max,  self._base_angle))
+        self._cam_us     = max(self.tilt_min, min(self.tilt_max, self._cam_us))
 
     def get_status(self) -> dict:
         display_bbox = None
@@ -387,7 +402,7 @@ class PersonTracker:
         if abs(self.offset_x) > self.dead_zone:
             desired = self.offset_x * 20.0 * self.pan_sign
             step    = max(-pan_budget, min(pan_budget, desired * self.pan_gain))
-            new_angle = max(0.0, min(180.0, self._base_angle + step))
+            new_angle = max(self.pan_min, min(self.pan_max, self._base_angle + step))
             if abs(new_angle - self._base_angle) >= 0.5:
                 direction = "RIGHT" if step > 0 else "LEFT"
                 print(f"[tracker] Pan {direction}: {self._base_angle:.1f}° → {new_angle:.1f}° (offset={self.offset_x:+.2f})")
@@ -404,7 +419,7 @@ class PersonTracker:
         if abs(tilt_error) > self.dead_zone:
             desired = tilt_error * 500.0 * self.tilt_sign
             step    = max(-tilt_budget, min(tilt_budget, desired * self.tilt_gain))
-            new_us  = max(400.0, min(2600.0, self._cam_us + step))
+            new_us  = max(self.tilt_min, min(self.tilt_max, self._cam_us + step))
             if abs(new_us - self._cam_us) >= 5.0:
                 direction = "DOWN" if step > 0 else "UP"
                 print(f"[tracker] Tilt {direction}: {self._cam_us:.0f}μs → {new_us:.0f}μs (tilt_err={tilt_error:+.2f})")

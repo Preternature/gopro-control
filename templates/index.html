@@ -63,6 +63,7 @@
                         <div id="cam1-preview-placeholder" class="preview-placeholder">
                             <p>No preview</p>
                         </div>
+                        <button class="preview-fs-btn" onclick="enterFullscreen('cam1-video')" title="Fullscreen">&#x26F6;</button>
                     </div>
                     <div class="preview-btn-row">
                         <button class="btn btn-secondary btn-sm" id="cam1-btn-start-preview" onclick="startPreview(1)">Start Preview</button>
@@ -156,6 +157,7 @@
                         <div id="cam2-preview-placeholder" class="preview-placeholder">
                             <p>No preview</p>
                         </div>
+                        <button class="preview-fs-btn" onclick="enterFullscreen('cam2-video')" title="Fullscreen">&#x26F6;</button>
                     </div>
                     <div class="preview-btn-row">
                         <button class="btn btn-secondary btn-sm" id="cam2-btn-start-preview" onclick="startPreview(2)">Start Preview</button>
@@ -263,34 +265,50 @@
 
                 <!-- Pan (Base Servo) -->
                 <div class="control-group">
-                    <h3>Pan</h3>
+                    <h3>Pan <span id="base-angle-val" class="gimbal-val">90°</span></h3>
                     <div class="axis-slider-row">
                         <span class="axis-label">← Left</span>
                         <input type="range" id="base-angle" min="0" max="180" value="90"
                                oninput="arduinoBaseAngle(this.value)">
                         <span class="axis-label">Right →</span>
                     </div>
+                    <div class="gimbal-limits-row">
+                        <span class="gimbal-limits-label">Limits</span>
+                        <label>Min <input type="number" id="base-min" min="0" max="180" value="45"
+                            class="gimbal-limit-input" onchange="applyGimbalLimit()">°</label>
+                        <label>Max <input type="number" id="base-max" min="0" max="180" value="144"
+                            class="gimbal-limit-input" onchange="applyGimbalLimit()">°</label>
+                        <button class="btn btn-sm btn-secondary" onclick="resetGimbalLimits('base')">Reset</button>
+                    </div>
                     <div class="button-row" style="margin-top:8px">
-                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetBase(0)">Full Left</button>
-                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetBase(90)">Center</button>
-                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetBase(180)">Full Right</button>
+                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetBase(_gimbalLimits.baseMin)">Full Left</button>
+                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetBase(Math.round((_gimbalLimits.baseMin+_gimbalLimits.baseMax)/2))">Center</button>
+                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetBase(_gimbalLimits.baseMax)">Full Right</button>
                         <button class="btn btn-secondary btn-sm" onclick="arduinoPost('gimbal/sweep',{target:'base'})">Sweep</button>
                     </div>
                 </div>
 
                 <!-- Tilt (Camera Pivot) -->
                 <div class="control-group">
-                    <h3>Tilt</h3>
+                    <h3>Tilt <span id="cam-us-val" class="gimbal-val">1500μs</span></h3>
                     <div class="axis-slider-row">
                         <span class="axis-label">↑ Up</span>
-                        <input type="range" id="cam-us" min="400" max="2600" value="1500"
+                        <input type="range" id="cam-us" min="400" max="2600" value="1900"
                                oninput="arduinoCamUs(this.value)">
                         <span class="axis-label">Down ↓</span>
                     </div>
+                    <div class="gimbal-limits-row">
+                        <span class="gimbal-limits-label">Limits</span>
+                        <label>Min <input type="number" id="cam-min" min="400" max="2600" value="1300"
+                            class="gimbal-limit-input" onchange="applyGimbalLimit()">μs</label>
+                        <label>Max <input type="number" id="cam-max" min="400" max="2600" value="2350"
+                            class="gimbal-limit-input" onchange="applyGimbalLimit()">μs</label>
+                        <button class="btn btn-sm btn-secondary" onclick="resetGimbalLimits('cam')">Reset</button>
+                    </div>
                     <div class="button-row" style="margin-top:8px">
-                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetCamUs(400)">Full Up</button>
-                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetCamUs(1500)">Center</button>
-                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetCamUs(2600)">Full Down</button>
+                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetCamUs(_gimbalLimits.camMin)">Full Up</button>
+                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetCamUs(Math.round((_gimbalLimits.camMin+_gimbalLimits.camMax)/2))">Center</button>
+                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetCamUs(_gimbalLimits.camMax)">Full Down</button>
                         <button class="btn btn-secondary btn-sm" onclick="arduinoPost('gimbal/sweep',{target:'cam'})">Sweep</button>
                     </div>
                 </div>
@@ -349,7 +367,11 @@
         <!-- Master Timeline -->
         <section class="mt-section" id="mt-section">
             <div class="mt-header">
-                <h2>Master Timeline</h2>
+                <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+                    <h2 style="white-space:nowrap">Master Timeline</h2>
+                    <input type="text" id="mt-project-name" class="mt-project-name"
+                           placeholder="Untitled Project" oninput="_projectName=this.value">
+                </div>
                 <div class="mt-toolbar">
                     <button class="btn btn-play btn-sm" onclick="mtPlay()">&#9654; Play</button>
                     <button class="btn btn-secondary btn-sm" onclick="mtStop()">&#9632; Stop</button>
@@ -357,9 +379,9 @@
                     <label style="display:flex;align-items:center;gap:4px;font-size:0.8rem">
                         Duration <input type="number" id="mt-duration" value="60" min="1" style="width:55px"> s
                     </label>
-                    <button class="btn btn-secondary btn-sm" onclick="mtSave()">Save</button>
+                    <button class="btn btn-primary btn-sm" onclick="projectSave()">&#128190; Save Project</button>
                     <label class="btn btn-secondary btn-sm" style="cursor:pointer;margin:0">
-                        Load<input type="file" accept=".json" style="display:none" onchange="mtLoad(this)">
+                        &#128194; Load Project<input type="file" accept=".json" style="display:none" onchange="projectLoad(this)">
                     </label>
                 </div>
             </div>
@@ -367,12 +389,38 @@
                 <!-- track rows populated by JS -->
             </div>
             <div class="mt-editor" id="mt-editor"></div>
+            <div class="mt-notes-wrap">
+                <label class="mt-notes-label">Notes</label>
+                <textarea id="mt-notes" class="mt-notes" rows="3"
+                          placeholder="Project notes, shot list, cues..."
+                          oninput="_projectNotes=this.value"></textarea>
+            </div>
         </section>
 
     </div><!-- end container -->
 
     <!-- Notifications -->
     <div id="notifications"></div>
+
+    <!-- Floating mini player -->
+    <div id="pip" class="pip hidden">
+        <div class="pip-header" onmousedown="pipDragStart(event)">
+            <span class="pip-title" id="pip-title">Preview</span>
+            <button class="pip-btn" onclick="pipFullscreen()" title="Fullscreen">&#x26F6;</button>
+            <button class="pip-btn" onclick="pipToggleCollapse()" id="pip-collapse-btn" title="Collapse">&#8212;</button>
+            <button class="pip-btn" onclick="pipClose()" title="Close">&#x2715;</button>
+        </div>
+        <div class="pip-body" id="pip-body">
+            <div class="pip-stream" id="pip-stream-1" style="display:none">
+                <span class="pip-cam-label">CAM 1</span>
+                <img id="pip-img-1" src="" alt="">
+            </div>
+            <div class="pip-stream" id="pip-stream-2" style="display:none">
+                <span class="pip-cam-label">CAM 2</span>
+                <img id="pip-img-2" src="" alt="">
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
     <script src="/static/app.js"></script>

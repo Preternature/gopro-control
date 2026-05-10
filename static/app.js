@@ -111,6 +111,8 @@ function toggleFlip(camId) {
     camState[camId].flipped = !flipped;
     video.style.transform = flipped ? '' : 'rotate(180deg)';
     btn.style.background = flipped ? '' : 'var(--primary-color)';
+    const pipImg = el(`pip-img-${camId}`);
+    if (pipImg) pipImg.style.transform = camState[camId].flipped ? 'rotate(180deg)' : '';
 }
 
 async function wakeWifiBle(camId) {
@@ -247,6 +249,7 @@ async function startPreview(camId) {
     placeholder.style.display = 'none';
     el(`cam${camId}-btn-start-preview`).style.display = 'none';
     el(`cam${camId}-btn-stop-preview`).style.display = 'inline-block';
+    pipShow(camId);
     showNotification(`Cam ${camId}: Preview live`, 'success');
 }
 
@@ -264,7 +267,96 @@ async function stopPreview(camId) {
     el(`cam${camId}-preview-placeholder`).style.display = 'flex';
     el(`cam${camId}-btn-start-preview`).style.display = 'inline-block';
     el(`cam${camId}-btn-stop-preview`).style.display = 'none';
+    pipHide(camId);
     showNotification(`Cam ${camId}: Preview stopped`, 'info');
+}
+
+// ─── Fullscreen ───────────────────────────────────────────────────────────────
+
+function enterFullscreen(elemId) {
+    const el_ = el(elemId);
+    if (!el_ || el_.style.display === 'none') return;
+    (el_.requestFullscreen || el_.webkitRequestFullscreen || el_.mozRequestFullScreen)?.call(el_);
+}
+
+// ─── Floating mini player (PiP) ───────────────────────────────────────────────
+
+let _pipCollapsed = false;
+let _pipDrag = null;  // { startX, startY, origRight, origBottom }
+
+function pipShow(camId) {
+    const stream = el(`pip-stream-${camId}`);
+    const img    = el(`pip-img-${camId}`);
+    if (stream && img) {
+        img.src = `/api/${camId}/mjpeg`;
+        img.style.transform = camState[camId]?.flipped ? 'rotate(180deg)' : '';
+        stream.style.display = 'block';
+    }
+    _pipRefreshTitle();
+    el('pip').classList.remove('hidden');
+}
+
+function pipHide(camId) {
+    const stream = el(`pip-stream-${camId}`);
+    const img    = el(`pip-img-${camId}`);
+    if (stream) stream.style.display = 'none';
+    if (img)    img.src = '';
+    _pipRefreshTitle();
+    // Hide pip entirely if no streams left
+    const anyVisible = [1, 2].some(id => el(`pip-stream-${id}`)?.style.display !== 'none');
+    if (!anyVisible) el('pip').classList.add('hidden');
+}
+
+function _pipRefreshTitle() {
+    const active = [1, 2].filter(id => el(`pip-stream-${id}`)?.style.display !== 'none');
+    el('pip-title').textContent = active.length === 2 ? 'Cam 1 + 2' : active.length === 1 ? `Cam ${active[0]}` : 'Preview';
+}
+
+function pipClose() {
+    [1, 2].forEach(id => stopPreview(id));
+}
+
+function pipFullscreen() {
+    // Fullscreen whichever stream is visible (prefer cam1 if both)
+    const active = [1, 2].find(id => el(`pip-stream-${id}`)?.style.display !== 'none');
+    if (active) enterFullscreen(`pip-img-${active}`);
+}
+
+function pipToggleCollapse() {
+    _pipCollapsed = !_pipCollapsed;
+    el('pip-body').style.display    = _pipCollapsed ? 'none' : 'block';
+    el('pip-collapse-btn').textContent = _pipCollapsed ? '▲' : '—';
+}
+
+// Drag to reposition
+function pipDragStart(e) {
+    if (e.button !== 0) return;
+    const pip = el('pip');
+    const rect = pip.getBoundingClientRect();
+    _pipDrag = {
+        startX: e.clientX,
+        startY: e.clientY,
+        origRight:  window.innerWidth  - rect.right,
+        origBottom: window.innerHeight - rect.bottom,
+    };
+    document.addEventListener('mousemove', _pipDragMove);
+    document.addEventListener('mouseup',   _pipDragEnd);
+    e.preventDefault();
+}
+
+function _pipDragMove(e) {
+    if (!_pipDrag) return;
+    const pip = el('pip');
+    const dx = e.clientX - _pipDrag.startX;
+    const dy = e.clientY - _pipDrag.startY;
+    pip.style.right  = Math.max(0, _pipDrag.origRight  - dx) + 'px';
+    pip.style.bottom = Math.max(0, _pipDrag.origBottom + dy) + 'px';
+}
+
+function _pipDragEnd() {
+    _pipDrag = null;
+    document.removeEventListener('mousemove', _pipDragMove);
+    document.removeEventListener('mouseup',   _pipDragEnd);
 }
 
 // ─── Media Browser ─────────────────────────────────────────────────────────────
@@ -435,10 +527,15 @@ function _updateTrackerUI(status, camId) {
         }
         // Move gimbal sliders to reflect actual tracked position
         // Pan slider is inverted (sends 180-val), so slider = 180 - current_angle
+        const panVal = 180 - status.base_angle;
         const panSlider = el('base-angle');
-        if (panSlider) panSlider.value = 180 - status.base_angle;
+        if (panSlider) panSlider.value = panVal;
+        const panDisp = el('base-angle-val');
+        if (panDisp) panDisp.textContent = `${panVal}°`;
         const tiltSlider = el('cam-us');
         if (tiltSlider) tiltSlider.value = status.cam_us;
+        const tiltDisp = el('cam-us-val');
+        if (tiltDisp) tiltDisp.textContent = `${status.cam_us}\u03bcs`;
     } else {
         _stopTrackPoll(activeCam);
     }
@@ -467,6 +564,20 @@ function updateArduinoStatus(data) {
         pill.classList.add('connected'); pill.classList.remove('disconnected');
         txt.textContent = data.port || 'Connected';
         controls.style.display = 'grid';
+        // Refresh gimbal readouts from known server state
+        if (data.base_angle !== undefined) {
+            const panVal = 180 - data.base_angle;
+            const panDisp = el('base-angle-val');
+            if (panDisp) panDisp.textContent = `${panVal}°`;
+            const panSlider = el('base-angle');
+            if (panSlider) panSlider.value = panVal;
+        }
+        if (data.cam_us !== undefined) {
+            const tiltDisp = el('cam-us-val');
+            if (tiltDisp) tiltDisp.textContent = `${data.cam_us}\u03bcs`;
+            const tiltSlider = el('cam-us');
+            if (tiltSlider) tiltSlider.value = data.cam_us;
+        }
     } else {
         pill.classList.remove('connected'); pill.classList.add('disconnected');
         txt.textContent = 'Disconnected';
@@ -493,22 +604,86 @@ async function arduinoSendSettings() {
     });
 }
 
+// ── Gimbal limits (persisted to localStorage) ─────────────────────────────────
+const _GIMBAL_LIMIT_KEY = 'gimbal_limits';
+const _gimbalLimits = (() => {
+    try { return JSON.parse(localStorage.getItem(_GIMBAL_LIMIT_KEY)) || {}; } catch { return {}; }
+})();
+function _gl(key, def) { return _gimbalLimits[key] ?? def; }
+
+function _saveGimbalLimits() {
+    localStorage.setItem(_GIMBAL_LIMIT_KEY, JSON.stringify(_gimbalLimits));
+}
+
+function _initGimbalUI() {
+    const bMin = el('base-min'), bMax = el('base-max');
+    const cMin = el('cam-min'),  cMax = el('cam-max');
+    if (bMin) bMin.value = _gl('baseMin', 45);
+    if (bMax) bMax.value = _gl('baseMax', 144);
+    if (cMin) cMin.value = _gl('camMin', 1300);
+    if (cMax) cMax.value = _gl('camMax', 2350);
+    const baseSlider = el('base-angle'), camSlider = el('cam-us');
+    if (baseSlider) { baseSlider.min = _gl('baseMin', 45);   baseSlider.max = _gl('baseMax', 144); }
+    if (camSlider)  { camSlider.min  = _gl('camMin', 1300);  camSlider.max  = _gl('camMax', 2350); }
+}
+
+function _syncTrackerLimits() {
+    fetch('/api/tracker/limits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            pan_min:  _gl('baseMin', 45),  pan_max:  _gl('baseMax', 144),
+            tilt_min: _gl('camMin', 1300), tilt_max: _gl('camMax', 2350),
+        })
+    });
+}
+
+function applyGimbalLimit() {
+    _gimbalLimits.baseMin = Math.max(0,   Math.min(180,  parseInt(el('base-min')?.value ?? 45)));
+    _gimbalLimits.baseMax = Math.max(0,   Math.min(180,  parseInt(el('base-max')?.value ?? 144)));
+    _gimbalLimits.camMin  = Math.max(400, Math.min(2600, parseInt(el('cam-min')?.value  ?? 1300)));
+    _gimbalLimits.camMax  = Math.max(400, Math.min(2600, parseInt(el('cam-max')?.value  ?? 2350)));
+    _saveGimbalLimits();
+    _syncTrackerLimits();
+    _initGimbalUI();
+    // Clamp current slider positions to new limits
+    const bSlider = el('base-angle');
+    if (bSlider) arduinoBaseAngle(Math.max(_gl('baseMin',45), Math.min(_gl('baseMax',144), parseInt(bSlider.value))));
+    const cSlider = el('cam-us');
+    if (cSlider) arduinoCamUs(Math.max(_gl('camMin',1300), Math.min(_gl('camMax',2350), parseInt(cSlider.value))));
+}
+
+function resetGimbalLimits(axis) {
+    if (axis === 'base') { _gimbalLimits.baseMin = 45;   _gimbalLimits.baseMax = 144; }
+    else                 { _gimbalLimits.camMin  = 1300; _gimbalLimits.camMax  = 2350; }
+    _saveGimbalLimits();
+    _initGimbalUI();
+}
+
 function arduinoBaseAngle(val) {
+    val = Math.max(_gl('baseMin', 45), Math.min(_gl('baseMax', 144), parseInt(val)));
+    const slider = el('base-angle');
+    if (slider) slider.value = val;
+    const disp = el('base-angle-val');
+    if (disp) disp.textContent = `${val}°`;
     // Invert so slider-left = physical left
-    debounceArduino('base-angle', () => arduinoPost('gimbal/base', { angle: 180 - parseInt(val) }));
+    debounceArduino('base-angle', () => arduinoPost('gimbal/base', { angle: 180 - val }));
 }
 
 function arduinoCamUs(val) {
-    debounceArduino('cam-us', () => arduinoPost('gimbal/cam', { us: parseInt(val) }));
+    val = Math.max(_gl('camMin', 1300), Math.min(_gl('camMax', 2350), parseInt(val)));
+    const slider = el('cam-us');
+    if (slider) slider.value = val;
+    const disp = el('cam-us-val');
+    if (disp) disp.textContent = `${val}\u03bcs`;
+    debounceArduino('cam-us', () => arduinoPost('gimbal/cam', { us: val }));
 }
 
 function arduinoSetBase(angle) {
-    el('base-angle').value = angle;
     arduinoBaseAngle(angle);
 }
 
 function arduinoSetCamUs(us) {
-    el('cam-us').value = us;
     arduinoCamUs(us);
 }
 
@@ -639,6 +814,7 @@ async function loadRGBStatus() {
 
 function _buildLightPanel(status) {
     const id = status.id;
+    _tlInit(id);  // ensure _tlDuration[id] exists before we read it
     const hex = rgbToHex(status.r ?? 255, status.g ?? 255, status.b ?? 255);
     const bri = status.brightness ?? 100;
     const name = (status.name || `Light ${id}`).replace(/</g, '&lt;');
@@ -650,7 +826,7 @@ function _buildLightPanel(status) {
                 title="Click to rename">${name}</span>
             <div style="display:flex;gap:5px;align-items:center">
                 <button class="btn btn-sm btn-preview" id="light${id}-preview-btn" onclick="togglePreview(${id})">Preview</button>
-                <button class="btn btn-sm btn-danger" style="padding:2px 7px;font-size:0.7rem" onclick="removeLight(${id})" title="Remove">✕</button>
+                <button class="btn btn-sm btn-danger" style="padding:2px 7px;font-size:0.7rem" onclick="removeLight(${id}, '${(status.name || '').replace(/'/g, "\\'")}')" title="Remove">✕</button>
             </div>
         </div>
         <div class="light-pins-row">
@@ -695,6 +871,12 @@ function _buildLightPanel(status) {
                 <label class="btn btn-sm btn-secondary" style="cursor:pointer;margin:0" title="Load JSON">
                     Load<input type="file" accept=".json" style="display:none" onchange="tlLoad(${id},this)">
                 </label>
+                <label style="font-size:0.75rem;color:var(--text-secondary);margin-left:6px;display:flex;align-items:center;gap:4px">
+                    Total<input type="number" id="light${id}-tl-duration" min="1" step="1"
+                        value="${_tlDuration[id] || 30}"
+                        style="width:52px;padding:2px 4px;font-size:0.75rem;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:3px;color:var(--text-primary)"
+                        onchange="tlSetDuration(${id},+this.value)">s
+                </label>
             </div>
             <div class="tl-canvas" id="light${id}-tl-canvas"></div>
             <div class="tl-editor" id="light${id}-tl-editor"></div>
@@ -704,8 +886,10 @@ function _buildLightPanel(status) {
 
 async function renderLights() {
     const data = await fetch('/api/lights').then(r => r.json()).catch(() => []);
+    _lightsCache = data;
     const grid = document.getElementById('lights-grid');
     if (grid) grid.innerHTML = data.map(_buildLightPanel).join('');
+    mtRender();
 }
 
 async function addLight() {
@@ -713,7 +897,8 @@ async function addLight() {
     await renderLights();
 }
 
-async function removeLight(lightId) {
+async function removeLight(lightId, lightName) {
+    if (!confirm(`Delete "${lightName || 'this light'}"? This cannot be undone.`)) return;
     await fetch(`/api/lights/${lightId}`, { method: 'DELETE' });
     await renderLights();
 }
@@ -805,10 +990,17 @@ function turnLightOff(lightId) {
 
 // ─── Timeline (block-based) ───────────────────────────────────────────────────
 
-const _tlBlocks      = {};  // lightId → [{color, brightness, duration}]
+let _projectName  = '';
+let _projectNotes = '';
+let _lightsCache  = [];  // last-fetched lights list — used by master timeline
+
+const _tlBlocks      = {};  // lightId → [{color, brightness, duration, start}]
 const _tlTransitions = {};  // lightId → [{color_mode, brightness_mode, duration}]
 const _tlSelected    = {};  // lightId → block index or null
 const _tlLoop        = {};  // lightId → bool
+const _tlDuration    = {};  // lightId → explicit total seconds
+
+let _tlDrag = null;  // active drag: {type:'move'|'resize', lightId, idx, startX, origVal, totalDur, canvasWidth}
 
 const TL_TRANSITION_MODES = ['cut', 'fade', 'dissolve'];
 // cut     = instant_start/instant_start
@@ -836,44 +1028,188 @@ function _tlInit(lightId) {
     if (!_tlTrUI[lightId])        _tlTrUI[lightId]        = [];
     if (!_tlLoop[lightId])        _tlLoop[lightId]        = false;
     if (_tlSelected[lightId] === undefined) _tlSelected[lightId] = null;
+    if (!_tlDuration[lightId])    _tlDuration[lightId]    = 30;
+}
+
+// Assign sequential start times to any blocks missing the start field
+function _tlMigrateStarts(lightId) {
+    const blocks = _tlBlocks[lightId] || [];
+    const trs    = _tlTrUI[lightId]   || [];
+    let t = 0;
+    for (let i = 0; i < blocks.length; i++) {
+        if (blocks[i].start === undefined) blocks[i].start = t;
+        t = blocks[i].start + blocks[i].duration;
+        if (i < blocks.length - 1) {
+            const tr = trs[i] ?? { mode: 'cut', duration: 1.0 };
+            if (tr.mode !== 'cut') t += tr.duration;
+        }
+    }
+}
+
+function tlSetDuration(lightId, val) {
+    _tlInit(lightId);
+    _tlDuration[lightId] = Math.max(1, parseFloat(val) || 30);
+    tlRenderCanvas(lightId);
+    _tlAutoSave(lightId);
+}
+
+// Convert per-light blocks → absolute-timed segments for master timeline display
+function _tlAbsoluteSegments(lightId) {
+    const blocks = _tlBlocks[lightId] || [];
+    const trs    = _tlTrUI[lightId]   || [];
+    const segs   = [];
+    for (let i = 0; i < blocks.length; i++) {
+        const b   = blocks[i];
+        const bri = b.brightness / 100;
+        const r   = parseInt(b.color.slice(1, 3), 16);
+        const g   = parseInt(b.color.slice(3, 5), 16);
+        const bl  = parseInt(b.color.slice(5, 7), 16);
+        const rgb = `rgb(${Math.round(r*bri)},${Math.round(g*bri)},${Math.round(bl*bri)})`;
+        const start = b.start ?? 0;
+        segs.push({ start, duration: b.duration, color: rgb, type: 'block' });
+        if (i < blocks.length - 1) {
+            const tr = trs[i] ?? { mode: 'cut', duration: 1.0 };
+            if (tr.mode !== 'cut' && tr.duration > 0) {
+                const nb   = blocks[i + 1];
+                const nbri = nb.brightness / 100;
+                const nr   = parseInt(nb.color.slice(1, 3), 16);
+                const ng   = parseInt(nb.color.slice(3, 5), 16);
+                const nbl  = parseInt(nb.color.slice(5, 7), 16);
+                const nextRgb = `rgb(${Math.round(nr*nbri)},${Math.round(ng*nbri)},${Math.round(nbl*nbri)})`;
+                segs.push({ start: start + b.duration, duration: tr.duration, fromColor: rgb, toColor: nextRgb, type: 'transition', mode: tr.mode });
+            }
+        }
+    }
+    return segs;
 }
 
 function tlRenderCanvas(lightId) {
     _tlInit(lightId);
     const canvas = document.getElementById(`light${lightId}-tl-canvas`);
     if (!canvas) return;
-    const blocks = _tlBlocks[lightId];
-    const trs    = _tlTrUI[lightId];
+
+    const blocks   = _tlBlocks[lightId];
+    const trs      = _tlTrUI[lightId];
+    const duration = _tlDuration[lightId] || 30;
+
+    // Sync duration input
+    const durInput = document.getElementById(`light${lightId}-tl-duration`);
+    if (durInput) durInput.value = duration;
+
     if (!blocks.length) {
         canvas.innerHTML = '<span class="tl-empty">No blocks — click + Block to add</span>';
         tlRenderEditor(lightId);
+        mtRender();
         return;
     }
-    const total = blocks.reduce((s, b) => s + b.duration, 0) + trs.reduce((s, t) => s + (t.mode !== 'cut' ? t.duration : 0), 0);
+
+    _tlMigrateStarts(lightId);
+
     let html = '';
     for (let i = 0; i < blocks.length; i++) {
-        const b = blocks[i];
+        const b   = blocks[i];
         const sel = _tlSelected[lightId] === i;
         const bri = b.brightness / 100;
-        const r = parseInt(b.color.slice(1,3), 16), g = parseInt(b.color.slice(3,5), 16), bb = parseInt(b.color.slice(5,7), 16);
+        const r   = parseInt(b.color.slice(1,3), 16);
+        const g   = parseInt(b.color.slice(3,5), 16);
+        const bb  = parseInt(b.color.slice(5,7), 16);
         const dispCol = `rgb(${Math.round(r*bri)},${Math.round(g*bri)},${Math.round(bb*bri)})`;
-        const wPct = (b.duration / total * 100).toFixed(2);
-        html += `<div class="tl-block${sel ? ' tl-block-sel' : ''}" style="width:${wPct}%;background:${dispCol}"
-            onclick="tlSelectBlock(${lightId},${i})" title="${b.duration}s">
-            <span class="tl-block-label">${b.duration}s</span>
+        const start   = b.start ?? 0;
+        const leftPct = (start / duration * 100).toFixed(3);
+        const wPct    = (b.duration / duration * 100).toFixed(3);
+
+        html += `<div class="tl-block${sel ? ' tl-block-sel' : ''}"
+            style="left:${leftPct}%;width:${wPct}%;background:${dispCol}"
+            onmousedown="tlBlockMouseDown(event,${lightId},${i})"
+            onclick="tlSelectBlock(${lightId},${i})"
+            title="${b.duration.toFixed(1)}s @ ${start.toFixed(1)}s">
+            <span class="tl-block-label">${b.duration.toFixed(1)}s</span>
+            <div class="tl-resize-handle" onmousedown="tlResizeMouseDown(event,${lightId},${i})"></div>
         </div>`;
+
+        // Transition segment
         if (i < blocks.length - 1) {
             const tr = trs[i] ?? { mode: 'cut', duration: 1.0 };
-            const trW = tr.mode !== 'cut' ? (tr.duration / total * 100).toFixed(2) : 0;
-            html += `<div class="tl-transition${trW > 0 ? ' tl-tr-gradual' : ''}" style="width:${Math.max(trW, 0.5)}%"
-                onclick="tlSelectBlock(${lightId},${i})" title="Transition: ${tr.mode}">
-                ${tr.mode !== 'cut' ? '~' : '|'}
-            </div>`;
+            if (tr.mode !== 'cut' && tr.duration > 0) {
+                const trStart = start + b.duration;
+                const trLeft  = (trStart / duration * 100).toFixed(3);
+                const trW     = (tr.duration / duration * 100).toFixed(3);
+                const nb      = blocks[i + 1];
+                const nbri    = nb.brightness / 100;
+                const nr  = parseInt(nb.color.slice(1,3), 16);
+                const ng  = parseInt(nb.color.slice(3,5), 16);
+                const nbb = parseInt(nb.color.slice(5,7), 16);
+                const nextCol = `rgb(${Math.round(nr*nbri)},${Math.round(ng*nbri)},${Math.round(nbb*nbri)})`;
+                html += `<div class="tl-transition tl-tr-gradual"
+                    style="left:${trLeft}%;width:${trW}%;background:linear-gradient(to right,${dispCol},${nextCol})"
+                    title="${tr.mode} ${tr.duration}s">~</div>`;
+            } else {
+                const cutLeft = ((start + b.duration) / duration * 100).toFixed(3);
+                html += `<div class="tl-cut-marker" style="left:${cutLeft}%"></div>`;
+            }
         }
     }
+
     canvas.innerHTML = html;
     tlRenderEditor(lightId);
+    mtRender();
 }
+
+// ── Drag to move / resize blocks ─────────────────────────────────────────────
+
+function tlBlockMouseDown(e, lightId, idx) {
+    if (e.target.classList.contains('tl-resize-handle')) return;
+    e.preventDefault();
+    const canvas = document.getElementById(`light${lightId}-tl-canvas`);
+    if (!canvas) return;
+    _tlDrag = {
+        type:       'move',
+        lightId,
+        idx,
+        startX:     e.clientX,
+        origVal:    _tlBlocks[lightId][idx].start ?? 0,
+        totalDur:   _tlDuration[lightId] || 30,
+        canvasWidth: canvas.getBoundingClientRect().width,
+    };
+}
+
+function tlResizeMouseDown(e, lightId, idx) {
+    e.preventDefault();
+    e.stopPropagation();
+    const canvas = document.getElementById(`light${lightId}-tl-canvas`);
+    if (!canvas) return;
+    _tlDrag = {
+        type:       'resize',
+        lightId,
+        idx,
+        startX:     e.clientX,
+        origVal:    _tlBlocks[lightId][idx].duration,
+        totalDur:   _tlDuration[lightId] || 30,
+        canvasWidth: canvas.getBoundingClientRect().width,
+    };
+}
+
+document.addEventListener('mousemove', e => {
+    if (!_tlDrag) return;
+    const { type, lightId, idx, startX, origVal, totalDur, canvasWidth } = _tlDrag;
+    const dSec = (e.clientX - startX) / canvasWidth * totalDur;
+    const block = _tlBlocks[lightId]?.[idx];
+    if (!block) return;
+    if (type === 'move') {
+        block.start = Math.max(0, Math.min(totalDur - block.duration, origVal + dSec));
+        block.start = Math.round(block.start * 10) / 10;
+    } else {
+        block.duration = Math.max(0.1, Math.round((origVal + dSec) * 10) / 10);
+    }
+    tlRenderCanvas(lightId);
+});
+
+document.addEventListener('mouseup', () => {
+    if (!_tlDrag) return;
+    const { lightId } = _tlDrag;
+    _tlDrag = null;
+    _tlAutoSave(lightId);
+});
 
 function tlRenderEditor(lightId) {
     _tlInit(lightId);
@@ -912,6 +1248,7 @@ function tlBlockProp(lightId, idx, key, val) {
     if (_tlBlocks[lightId][idx]) {
         _tlBlocks[lightId][idx][key] = val;
         tlRenderCanvas(lightId);
+        _tlAutoSave(lightId);
     }
 }
 
@@ -920,6 +1257,7 @@ function tlTrProp(lightId, trIdx, key, val) {
     if (!_tlTrUI[lightId][trIdx]) _tlTrUI[lightId][trIdx] = { mode: 'cut', duration: 1.0 };
     _tlTrUI[lightId][trIdx][key] = val;
     tlRenderCanvas(lightId);
+    _tlAutoSave(lightId);
 }
 
 function tlSelectBlock(lightId, idx) {
@@ -931,12 +1269,19 @@ function tlAddBlock(lightId) {
     _tlInit(lightId);
     const blocks = _tlBlocks[lightId];
     const last = blocks[blocks.length - 1];
-    blocks.push({ color: last?.color ?? '#0088ff', brightness: last?.brightness ?? 100, duration: 2.0 });
+    let newStart = 0;
+    if (last) {
+        newStart = (last.start ?? 0) + last.duration;
+        const lastTr = _tlTrUI[lightId][blocks.length - 1];
+        if (lastTr && lastTr.mode !== 'cut') newStart += lastTr.duration;
+    }
+    blocks.push({ color: last?.color ?? '#0088ff', brightness: last?.brightness ?? 100, duration: 2.0, start: newStart });
     if (blocks.length > 1) {
         _tlTrUI[lightId].push({ mode: 'cut', duration: 1.0 });
     }
     _tlSelected[lightId] = blocks.length - 1;
     tlRenderCanvas(lightId);
+    _tlAutoSave(lightId);
 }
 
 function tlDeleteBlock(lightId, idx) {
@@ -950,13 +1295,43 @@ function tlDeleteBlock(lightId, idx) {
     }
     _tlSelected[lightId] = null;
     tlRenderCanvas(lightId);
+    _tlAutoSave(lightId);
+}
+
+// ── Auto-save / load per-light timeline to localStorage ──────────────────────
+
+function _tlAutoSave(lightId) {
+    try {
+        localStorage.setItem(`tl_${lightId}`, JSON.stringify({
+            blocks:      _tlBlocks[lightId]   || [],
+            transitions: _tlTrUI[lightId]     || [],
+            loop:        _tlLoop[lightId]      || false,
+            duration:    _tlDuration[lightId]  || 30,
+        }));
+    } catch (e) {}
+}
+
+function _tlAutoLoad(lightId) {
+    try {
+        const raw = localStorage.getItem(`tl_${lightId}`);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        _tlInit(lightId);
+        _tlBlocks[lightId]   = data.blocks      || [];
+        _tlTrUI[lightId]     = (data.transitions || []).map(t => t.mode !== undefined ? t : _tlTrFromServer(t));
+        _tlLoop[lightId]     = data.loop         || false;
+        _tlDuration[lightId] = data.duration     || 30;
+        _tlSelected[lightId] = null;
+        const loopBtn = document.getElementById(`light${lightId}-tl-loop`);
+        if (loopBtn) loopBtn.classList.toggle('tl-loop-on', _tlLoop[lightId]);
+    } catch (e) {}
 }
 
 async function tlPlay(lightId) {
     _tlInit(lightId);
-    // Push current state to server first
-    const blocks = _tlBlocks[lightId];
-    const transitions = _tlTrUI[lightId].map((tr, i) => _tlTrToServer(tr.mode, tr.duration));
+    // Sort blocks by start time before pushing to server
+    const blocks = [..._tlBlocks[lightId]].sort((a, b) => (a.start ?? 0) - (b.start ?? 0));
+    const transitions = _tlTrUI[lightId].map(tr => _tlTrToServer(tr.mode, tr.duration));
     await fetch(`/api/lights/${lightId}/timeline`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -976,6 +1351,7 @@ function tlToggleLoop(lightId) {
     _tlLoop[lightId] = !_tlLoop[lightId];
     const btn = document.getElementById(`light${lightId}-tl-loop`);
     if (btn) btn.classList.toggle('tl-loop-on', _tlLoop[lightId]);
+    _tlAutoSave(lightId);
 }
 
 async function tlSave(lightId) {
@@ -999,13 +1375,15 @@ async function tlLoad(lightId, input) {
     let data;
     try { data = JSON.parse(text); } catch { showNotification('Invalid JSON', 'error'); return; }
     _tlInit(lightId);
-    _tlBlocks[lightId]      = data.blocks ?? [];
-    _tlTrUI[lightId]        = (data.transitions ?? []).map(t => t.mode !== undefined ? t : _tlTrFromServer(t));
-    _tlLoop[lightId]        = data.loop ?? false;
-    _tlSelected[lightId]    = null;
+    _tlBlocks[lightId]   = data.blocks      ?? [];
+    _tlTrUI[lightId]     = (data.transitions ?? []).map(t => t.mode !== undefined ? t : _tlTrFromServer(t));
+    _tlLoop[lightId]     = data.loop        ?? false;
+    _tlDuration[lightId] = data.duration    ?? 30;
+    _tlSelected[lightId] = null;
     const loopBtn = document.getElementById(`light${lightId}-tl-loop`);
     if (loopBtn) loopBtn.classList.toggle('tl-loop-on', _tlLoop[lightId]);
     tlRenderCanvas(lightId);
+    _tlAutoSave(lightId);
     showNotification(`Loaded ${_tlBlocks[lightId].length} blocks`, 'success');
     input.value = '';
 }
@@ -1037,53 +1415,68 @@ function mtRender() {
     if (!tl) return;
     const total = parseFloat(document.getElementById('mt-duration')?.value || _mt.duration) || 60;
 
-    // Build track rows
-    const allTracks = [
-        ...MT_TRACK_DEFS,
-        ...Object.keys(_mt.lightTracks).map(lid => ({
-            key: 'light_' + lid, label: 'Light ' + lid, color: null, stub: false, lightId: lid
-        }))
-    ];
-
     // Time ruler
     const rulerTicks = Math.min(20, Math.floor(total));
     const tickStep   = Math.ceil(total / rulerTicks);
     let ruler = '<div class="mt-ruler">';
     for (let t = 0; t <= total; t += tickStep) {
-        ruler += `<span class="mt-tick" style="left:${(t/total*100).toFixed(2)}%">${t}s</span>`;
+        ruler += `<span class="mt-tick" style="width:${(tickStep/total*100).toFixed(2)}%">${t}s</span>`;
     }
     ruler += '</div>';
 
-    const rows = allTracks.map(td => {
-        const blocks = td.lightId
-            ? (_mt.lightTracks[td.lightId] || [])
-            : (_mt.tracks[td.key] || []);
+    // ── Non-light tracks (rail, cam1, cam2) ────────────────────────────────
+    const nonLightRows = MT_TRACK_DEFS.map(td => {
+        const blocks = _mt.tracks[td.key] || [];
         const blocksHtml = blocks.map((b, i) => {
-            const left  = (b.start / total * 100).toFixed(3);
+            const left  = (b.start   / total * 100).toFixed(3);
             const width = (b.duration / total * 100).toFixed(3);
             const sel   = _mt.selected?.track === td.key && _mt.selected?.idx === i;
-            const bgCol = td.lightId
-                ? (() => { const bri=b.brightness/100; const r=parseInt(b.color.slice(1,3),16), g=parseInt(b.color.slice(3,5),16), bl=parseInt(b.color.slice(5,7),16); return `rgb(${Math.round(r*bri)},${Math.round(g*bri)},${Math.round(bl*bri)})`; })()
-                : (td.color || '#666');
-            const label = td.lightId
-                ? `${b.duration}s`
-                : (b.action || b.direction || '?') + ` ${b.duration}s`;
-            return `<div class="mt-block${sel ? ' mt-block-sel':''}" style="left:${left}%;width:${width}%;background:${bgCol}"
+            const label = (b.action || b.direction || '?') + ` ${b.duration}s`;
+            return `<div class="mt-block${sel ? ' mt-block-sel' : ''}"
+                style="left:${left}%;width:${width}%;background:${td.color || '#666'}"
                 onclick="mtSelectBlock('${td.key}',${i})" title="${label}">
                 <span class="mt-block-label">${label}</span>
             </div>`;
         }).join('');
-        const stubNote = td.stub ? ' <span class="mt-stub">(coming soon)</span>' : '';
+        const stubNote = td.stub ? '<span style="font-size:0.65rem;color:#555;padding-left:6px">(soon)</span>' : '';
         return `<div class="mt-row">
             <div class="mt-row-label">${td.label}${stubNote}</div>
             <div class="mt-row-canvas" id="mt-canvas-${td.key}">
                 ${blocksHtml}
-                ${!td.stub ? `<button class="mt-add-btn" onclick="mtAddBlock('${td.key}'${td.lightId ? ",'"+td.lightId+"'" : ''})">+</button>` : ''}
+                ${!td.stub ? `<button class="mt-add-btn" onclick="mtAddBlock('${td.key}')">+</button>` : ''}
             </div>
         </div>`;
     }).join('');
 
-    tl.innerHTML = ruler + rows;
+    // ── Light tracks — derived from per-light _tlBlocks ────────────────────
+    const lightRows = _lightsCache.map(light => {
+        const lid  = light.id;
+        const segs = _tlAbsoluteSegments(lid);
+        const segsHtml = segs.map(s => {
+            const left  = (s.start    / total * 100).toFixed(3);
+            const width = Math.max(s.duration / total * 100, 0.4).toFixed(3);
+            if (s.type === 'block') {
+                return `<div class="mt-block"
+                    style="left:${left}%;width:${width}%;background:${s.color};border-radius:3px"
+                    title="${s.duration}s">
+                    <span class="mt-block-label">${s.duration}s</span>
+                </div>`;
+            } else {
+                return `<div class="mt-tl-tr"
+                    style="left:${left}%;width:${width}%;background:linear-gradient(90deg,${s.fromColor},${s.toColor})"
+                    title="${s.mode}"></div>`;
+            }
+        }).join('');
+        const empty = segs.length === 0
+            ? '<span style="font-size:0.7rem;color:#555;padding-left:8px;line-height:42px">Add blocks in the Lights section</span>'
+            : '';
+        return `<div class="mt-row mt-row-light">
+            <div class="mt-row-label" style="color:#e65100">${light.name || 'Light ' + lid}</div>
+            <div class="mt-row-canvas">${segsHtml}${empty}</div>
+        </div>`;
+    }).join('');
+
+    tl.innerHTML = ruler + nonLightRows + lightRows;
     mtRenderEditor();
 }
 
@@ -1208,33 +1601,86 @@ function mtToggleLoop() {
     if (btn) btn.classList.toggle('tl-loop-on', _mt.loop);
 }
 
-function mtSave() {
-    const blob = new Blob([JSON.stringify({
-        tracks: _mt.tracks, lightTracks: _mt.lightTracks,
-        duration: _mt.duration, loop: _mt.loop
-    }, null, 2)], { type: 'application/json' });
+function projectSave() {
+    // Snapshot all per-light timelines
+    const lightTimelines = {};
+    const knownIds = Object.keys(_tlBlocks);
+    // Also include any lights loaded but not yet edited
+    for (const lid of knownIds) {
+        lightTimelines[lid] = {
+            blocks:      _tlBlocks[lid]    ?? [],
+            transitions: _tlTrUI[lid]      ?? [],
+            loop:        _tlLoop[lid]      ?? false,
+            duration:    _tlDuration[lid]  ?? 30,
+        };
+    }
+
+    const project = {
+        version:   1,
+        name:      _projectName  || 'Untitled Project',
+        notes:     _projectNotes || '',
+        savedAt:   new Date().toISOString(),
+        master: {
+            tracks:      _mt.tracks,
+            lightTracks: _mt.lightTracks,
+            duration:    _mt.duration,
+            loop:        _mt.loop,
+        },
+        lightTimelines,
+    };
+
+    const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'master_timeline.json';
+    const safeName = (project.name).replace(/[^a-z0-9_\- ]/gi, '_').trim() || 'project';
+    a.download = `${safeName}.json`;
     a.click();
 }
 
-async function mtLoad(input) {
+async function projectLoad(input) {
     const file = input.files[0];
     if (!file) return;
-    let data;
-    try { data = JSON.parse(await file.text()); } catch { showNotification('Invalid JSON', 'error'); return; }
-    _mt.tracks      = data.tracks      ?? { rail: [], cam1: [], cam2: [] };
-    _mt.lightTracks = data.lightTracks ?? {};
-    _mt.duration    = data.duration    ?? 60;
-    _mt.loop        = data.loop        ?? false;
+    let project;
+    try { project = JSON.parse(await file.text()); } catch { showNotification('Invalid JSON', 'error'); return; }
+
+    // Restore project meta
+    _projectName  = project.name  ?? '';
+    _projectNotes = project.notes ?? '';
+    const nameEl  = document.getElementById('mt-project-name');
+    if (nameEl)  nameEl.value  = _projectName;
+    const notesEl = document.getElementById('mt-notes');
+    if (notesEl) notesEl.value = _projectNotes;
+
+    // Restore master timeline
+    const m = project.master ?? {};
+    _mt.tracks      = m.tracks      ?? { rail: [], cam1: [], cam2: [] };
+    _mt.lightTracks = m.lightTracks ?? {};
+    _mt.duration    = m.duration    ?? 60;
+    _mt.loop        = m.loop        ?? false;
     _mt.selected    = null;
-    const durEl = document.getElementById('mt-duration');
-    if (durEl) durEl.value = _mt.duration;
+    const durEl  = document.getElementById('mt-duration');
+    if (durEl)  durEl.value = _mt.duration;
     const loopBtn = document.getElementById('mt-loop-btn');
     if (loopBtn) loopBtn.classList.toggle('tl-loop-on', _mt.loop);
+
+    // Restore per-light timelines
+    const lt = project.lightTimelines ?? {};
+    for (const [lid, tl] of Object.entries(lt)) {
+        const id = parseInt(lid);
+        _tlInit(id);
+        _tlBlocks[id]    = tl.blocks      ?? [];
+        _tlTrUI[id]      = (tl.transitions ?? []).map(t => t.mode !== undefined ? t : _tlTrFromServer(t));
+        _tlLoop[id]      = tl.loop        ?? false;
+        _tlDuration[id]  = tl.duration    ?? 30;
+        _tlSelected[id]  = null;
+        const loopB = document.getElementById(`light${id}-tl-loop`);
+        if (loopB) loopB.classList.toggle('tl-loop-on', _tlLoop[id]);
+        tlRenderCanvas(id);
+    }
+
     mtRender();
-    showNotification(`Loaded master timeline`, 'success');
+    const blockCount = Object.values(lt).reduce((s, t) => s + (t.blocks?.length ?? 0), 0);
+    showNotification(`Loaded "${_projectName}" — ${blockCount} light block(s)`, 'success');
     input.value = '';
 }
 
@@ -1254,6 +1700,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (s1) updateCamStatus(1, s1.connected, s1.ip, s1.type);
     if (s2) updateCamStatus(2, s2.connected, s2.ip, s2.type);
     if (ard) updateArduinoStatus(ard);
+    _initGimbalUI();
+    _syncTrackerLimits();
     await renderLights();
+    // Auto-load per-light timelines from localStorage
+    for (const light of _lightsCache) {
+        _tlAutoLoad(light.id);
+        tlRenderCanvas(light.id);
+    }
+    // Turn off all lights on page load so every session starts with a clean state
+    const lightsData = await fetch('/api/lights').then(r => r.json()).catch(() => []);
+    await Promise.all(lightsData.map(l => fetch(`/api/lights/${l.id}/off`, { method: 'POST' })));
     mtRender();
 });

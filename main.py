@@ -435,6 +435,17 @@ def tracker_stop():
     tracker.stop()
     return jsonify({"success": True})
 
+@app.route('/api/tracker/limits', methods=['POST'])
+def tracker_limits():
+    data = request.json or {}
+    tracker.set_limits(
+        pan_min  = data.get('pan_min',  45),
+        pan_max  = data.get('pan_max',  144),
+        tilt_min = data.get('tilt_min', 1300),
+        tilt_max = data.get('tilt_max', 2350),
+    )
+    return jsonify({"success": True})
+
 # === Web Routes ===
 
 @app.route('/')
@@ -1017,31 +1028,45 @@ def light_timeline_play(light_id):
         time.sleep(0.1)
 
     def _playback():
+        if not arduino.connected and not _rgb_connected():
+            tl['playing'] = False
+            return
         tl['playing'] = True
         tl['_stop'] = False
+        pins_cmd = f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}"
         while True:
-            blocks = list(tl['blocks'])
+            # Sort blocks by start time so freely-dragged blocks play in order
+            blocks = sorted(tl['blocks'], key=lambda b: float(b.get('start', 0)))
             transitions = list(tl['transitions'])
+            play_start = time.time()
             for i, block in enumerate(blocks):
                 if tl['_stop']: break
-                # Apply block
+                # Wait until this block's scheduled start time
+                target_t = play_start + float(block.get('start', 0))
+                while time.time() < target_t:
+                    if tl['_stop']: break
+                    time.sleep(0.02)
+                if tl['_stop']: break
+                # Apply block color — delay 50ms between PINS and RGB so Arduino processes PINS first
                 r, g, b = _hex_to_rgb(block['color'])
                 scale = block['brightness'] / 100.0
-                _rgb_send(f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}")
+                _rgb_send(pins_cmd)
+                time.sleep(0.05)
                 _rgb_send(f"RGB:{int(r*scale)},{int(g*scale)},{int(b*scale)}")
-                # Wait block duration
-                end = time.time() + float(block['duration'])
-                while time.time() < end:
+                # Wait until block ends (relative to play_start)
+                block_end = target_t + float(block['duration'])
+                while time.time() < block_end:
                     if tl['_stop']: break
-                    time.sleep(0.05)
-                # Perform transition to next block
+                    time.sleep(0.02)
+                # Transition to next block if adjacent
                 if not tl['_stop'] and i < len(blocks) - 1:
                     tr = transitions[i] if i < len(transitions) else {'color_mode': 'instant_start', 'brightness_mode': 'instant_start', 'duration': 0}
                     _perform_transition(ls, block, blocks[i + 1], tr, tl)
             if tl['_stop'] or not tl['loop']:
                 break
         if not tl['_stop']:
-            _rgb_send(f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}")
+            _rgb_send(pins_cmd)
+            time.sleep(0.05)
             _rgb_send("RGB:0,0,0")
         tl['playing'] = False
 

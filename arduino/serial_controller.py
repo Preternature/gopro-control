@@ -22,7 +22,7 @@ class ArduinoController:
         self.speed = 91
         self.duration = 10000
         self.base_angle = 90
-        self.cam_us = 1500
+        self.cam_us = 1900
 
     # ── Connection ──────────────────────────────────────────────────────────
 
@@ -146,7 +146,7 @@ class ArduinoController:
 
     def gimbal_center(self) -> bool:
         self.gimbal_base_angle(90)
-        self.gimbal_cam_us(1500)
+        self.gimbal_cam_us(1900)
         return True
 
     def gimbal_sweep_base(self) -> bool:
