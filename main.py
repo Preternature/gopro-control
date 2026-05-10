@@ -274,6 +274,7 @@ def _fire_master_light(ev: dict):
     r, g, b = _hex_to_rgb(block["color"])
     scale   = block["brightness"] / 100.0
     _rgb_send(f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}")
+    time.sleep(0.05)
     _rgb_send(f"RGB:{int(r*scale)},{int(g*scale)},{int(b*scale)}")
     if next_block:
         tr_ui  = block.get("transition", {"mode": "cut", "duration": 1.0})

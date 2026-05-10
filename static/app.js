@@ -1428,14 +1428,16 @@ function mtRender() {
     const nonLightRows = MT_TRACK_DEFS.map(td => {
         const blocks = _mt.tracks[td.key] || [];
         const blocksHtml = blocks.map((b, i) => {
-            const left  = (b.start   / total * 100).toFixed(3);
+            const left  = (b.start    / total * 100).toFixed(3);
             const width = (b.duration / total * 100).toFixed(3);
             const sel   = _mt.selected?.track === td.key && _mt.selected?.idx === i;
             const label = (b.action || b.direction || '?') + ` ${b.duration}s`;
             return `<div class="mt-block${sel ? ' mt-block-sel' : ''}"
                 style="left:${left}%;width:${width}%;background:${td.color || '#666'}"
+                onmousedown="mtBlockMouseDown(event,'${td.key}',${i})"
                 onclick="mtSelectBlock('${td.key}',${i})" title="${label}">
                 <span class="mt-block-label">${label}</span>
+                <div class="mt-resize-handle" onmousedown="mtResizeMouseDown(event,'${td.key}',${i})"></div>
             </div>`;
         }).join('');
         const stubNote = td.stub ? '<span style="font-size:0.65rem;color:#555;padding-left:6px">(soon)</span>' : '';
@@ -1577,14 +1579,88 @@ function mtDeleteBlock(track, idx) {
     if (blocks) { blocks.splice(idx, 1); _mt.selected = null; mtRender(); }
 }
 
+// ── Master timeline block drag ────────────────────────────────────────────────
+
+let _mtDrag = null;
+
+function mtBlockMouseDown(e, track, idx) {
+    if (e.target.classList.contains('mt-resize-handle')) return;
+    e.preventDefault();
+    const canvas = document.getElementById(`mt-canvas-${track}`);
+    if (!canvas) return;
+    const block = _mt.tracks[track]?.[idx];
+    if (!block) return;
+    _mtDrag = {
+        type:        'move',
+        track, idx,
+        startX:      e.clientX,
+        origVal:     block.start,
+        totalDur:    _mt.duration,
+        canvasWidth: canvas.getBoundingClientRect().width,
+    };
+    _mt.selected = { track, idx };
+}
+
+function mtResizeMouseDown(e, track, idx) {
+    e.preventDefault();
+    e.stopPropagation();
+    const canvas = document.getElementById(`mt-canvas-${track}`);
+    if (!canvas) return;
+    const block = _mt.tracks[track]?.[idx];
+    if (!block) return;
+    _mtDrag = {
+        type:        'resize',
+        track, idx,
+        startX:      e.clientX,
+        origVal:     block.duration,
+        totalDur:    _mt.duration,
+        canvasWidth: canvas.getBoundingClientRect().width,
+    };
+}
+
+document.addEventListener('mousemove', e => {
+    if (!_mtDrag) return;
+    const { type, track, idx, startX, origVal, totalDur, canvasWidth } = _mtDrag;
+    const dSec  = (e.clientX - startX) / canvasWidth * totalDur;
+    const block = _mt.tracks[track]?.[idx];
+    if (!block) return;
+    if (type === 'move') {
+        block.start = Math.max(0, Math.min(totalDur - block.duration, origVal + dSec));
+        block.start = Math.round(block.start * 10) / 10;
+    } else {
+        block.duration = Math.max(0.1, Math.round((origVal + dSec) * 10) / 10);
+    }
+    mtRender();
+});
+
+document.addEventListener('mouseup', e => {
+    if (_mtDrag) { _mtDrag = null; }
+});
+
 async function mtPlay() {
-    // Push current state to server
     const dur = parseFloat(document.getElementById('mt-duration')?.value || 60);
     _mt.duration = dur;
+
+    // Build light_tracks from per-light _tlBlocks (what the user actually edited)
+    const lightTracks = {};
+    for (const light of _lightsCache) {
+        const lid    = light.id;
+        const blocks = (_tlBlocks[lid] || []).slice().sort((a, b) => (a.start ?? 0) - (b.start ?? 0));
+        if (!blocks.length) continue;
+        const trs = _tlTrUI[lid] || [];
+        lightTracks[String(lid)] = blocks.map((b, i) => ({
+            start:      b.start      ?? 0,
+            duration:   b.duration,
+            color:      b.color,
+            brightness: b.brightness,
+            transition: trs[i]       ?? { mode: 'cut', duration: 1.0 },
+        }));
+    }
+
     await fetch('/api/master-timeline', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tracks: _mt.tracks, light_tracks: _mt.lightTracks,
+        body: JSON.stringify({ tracks: _mt.tracks, light_tracks: lightTracks,
                                duration: _mt.duration, loop: _mt.loop })
     });
     await fetch('/api/master-timeline/play', { method: 'POST' });

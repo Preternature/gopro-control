@@ -1147,15 +1147,27 @@ input[type="number"] {
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    cursor: pointer;
+    cursor: grab;
     opacity: 0.88;
     transition: opacity 0.1s, outline 0.1s;
     border: 1px solid rgba(255,255,255,0.12);
     user-select: none;
 }
-
+.mt-block:active { cursor: grabbing; }
 .mt-block:hover  { opacity: 1; }
 .mt-block-sel    { outline: 2px solid #fff; opacity: 1; z-index: 1; }
+
+.mt-resize-handle {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 8px;
+    height: 100%;
+    cursor: ew-resize;
+    background: rgba(255,255,255,0.2);
+    z-index: 3;
+}
+.mt-resize-handle:hover { background: rgba(255,255,255,0.5); }
 
 .mt-block-label {
     font-size: 0.62rem;
