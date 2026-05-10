@@ -77,17 +77,15 @@ tracker = PersonTracker(arduino)
 
 _rgb_ser: serial.Serial = None
 _rgb_port_name: str = None
-_rgb_lock    = threading.Lock()
-_pin_seq_lock = threading.Lock()   # protects PINS+RGB pairs from interleaving
+_rgb_lock     = threading.Lock()
+_pin_seq_lock = threading.Lock()  # keeps PINS+RGB pairs atomic across threads
 
 def _send_color(ls: dict, r: int, g: int, b: int):
-    """Atomically send PINS+RGB so concurrent light threads can't interleave."""
     with _pin_seq_lock:
         _rgb_send(f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}")
         _rgb_send(f"RGB:{r},{g},{b}")
 
 def _turn_off_light(ls: dict):
-    """Atomically turn off a single light."""
     with _pin_seq_lock:
         _rgb_send(f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}")
         _rgb_send("RGB:0,0,0")
@@ -170,12 +168,13 @@ def _next_light_id() -> int:
     return max(lights.keys(), default=0) + 1
 
 def _light_send_color(ls: dict) -> bool:
-    _rgb_send(f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}")
     bri = ls['brightness'] / 100
     r = int(ls['r'] * bri)
     g = int(ls['g'] * bri)
     b = int(ls['b'] * bri)
-    return _rgb_send(f"RGB:{r},{g},{b}")
+    with _pin_seq_lock:
+        _rgb_send(f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}")
+        return _rgb_send(f"RGB:{r},{g},{b}")
 
 # ── Timeline state (block-based) ───────────────────────────────────────────────
 # Per-light: {"blocks": [...], "transitions": [...], "playing": bool, "_stop": bool, "loop": bool}
@@ -1002,8 +1001,10 @@ def light_effect(light_id):
         return jsonify({"error": "not found"}), 404
     effect = (request.json or {}).get('effect', 'STOP').upper()
     ls['effect'] = None if effect == 'STOP' else effect
-    _rgb_send(f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}")
-    ok = _rgb_send(f"EFFECT:{effect}")
+    with _pin_seq_lock:
+        _rgb_send(f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}")
+        _rgb_send(f"EFFECT:{effect}")
+    ok = True
     return jsonify({"success": ok})
 
 @app.route('/api/lights/<int:light_id>/off', methods=['POST'])
@@ -1011,15 +1012,17 @@ def light_off(light_id):
     ls = lights.get(light_id)
     if ls is None:
         return jsonify({"error": "not found"}), 404
-    _rgb_send(f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}")
-    ok = _rgb_send("RGB:0,0,0")
+    with _pin_seq_lock:
+        _rgb_send(f"PINS:{ls['pin_r']},{ls['pin_g']},{ls['pin_b']}")
+        ok = _rgb_send("RGB:0,0,0")
     return jsonify({"success": ok})
 
 # Timeline routes
 @app.route('/api/lights/<int:light_id>/timeline', methods=['GET'])
 def light_timeline_get(light_id):
     tl = _tl(light_id)
-    return jsonify({"blocks": tl['blocks'], "transitions": tl['transitions'], "loop": tl['loop']})
+    return jsonify({"blocks": tl['blocks'], "transitions": tl['transitions'],
+                    "loop": tl['loop'], "playing": tl['playing']})
 
 @app.route('/api/lights/<int:light_id>/timeline', methods=['POST'])
 def light_timeline_set(light_id):

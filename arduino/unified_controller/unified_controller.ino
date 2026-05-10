@@ -104,13 +104,15 @@ void hsvToRgb(uint16_t h, uint8_t s, uint8_t v,
 }
 
 void setPins(uint8_t r, uint8_t g, uint8_t b) {
-    analogWrite(ledPinR, COMMON_ANODE ? 255 : 0);
-    analogWrite(ledPinG, COMMON_ANODE ? 255 : 0);
-    analogWrite(ledPinB, COMMON_ANODE ? 255 : 0);
+    // Switch active pin set WITHOUT zeroing old pins — other lights stay on
     ledPinR = r; ledPinG = g; ledPinB = b;
     pinMode(ledPinR, OUTPUT);
     pinMode(ledPinG, OUTPUT);
     pinMode(ledPinB, OUTPUT);
+    // Initialize new pins to off so they're dark until the next RGB command
+    analogWrite(ledPinR, COMMON_ANODE ? 255 : 0);
+    analogWrite(ledPinG, COMMON_ANODE ? 255 : 0);
+    analogWrite(ledPinB, COMMON_ANODE ? 255 : 0);
 }
 
 // ─── Rail ─────────────────────────────────────────────────────────────────────
@@ -223,6 +225,35 @@ void handleCommand(String line) {
                      constrain(s.substring(c1+1, c2).toInt(), 0, 255),
                      constrain(s.substring(c2+1).toInt(), 0, 255));
         Serial.println("OK:RGB");
+        return;
+    }
+
+    // SETRGB:pR,pG,pB,r,g,b — atomic direct write to named pins, no global state change
+    if (line.startsWith("SETRGB:")) {
+        currentEffect = EFF_NONE;
+        String s = line.substring(7);
+        int c[5], pos = 0;
+        bool ok = true;
+        for (int i = 0; i < 5; i++) {
+            c[i] = s.indexOf(',', pos);
+            if (c[i] < 0) { ok = false; break; }
+            pos = c[i] + 1;
+        }
+        if (ok) {
+            uint8_t pR = constrain(s.substring(0,      c[0]).toInt(), 0, 53);
+            uint8_t pG = constrain(s.substring(c[0]+1, c[1]).toInt(), 0, 53);
+            uint8_t pB = constrain(s.substring(c[1]+1, c[2]).toInt(), 0, 53);
+            uint8_t r  = gamma8(constrain(s.substring(c[2]+1, c[3]).toInt(), 0, 255));
+            uint8_t g  = gamma8(constrain(s.substring(c[3]+1, c[4]).toInt(), 0, 255));
+            uint8_t b  = gamma8(constrain(s.substring(c[4]+1).toInt(),       0, 255));
+            pinMode(pR, OUTPUT); pinMode(pG, OUTPUT); pinMode(pB, OUTPUT);
+            if (COMMON_ANODE) {
+                analogWrite(pR, 255-r); analogWrite(pG, 255-g); analogWrite(pB, 255-b);
+            } else {
+                analogWrite(pR, r); analogWrite(pG, g); analogWrite(pB, b);
+            }
+        }
+        Serial.println("OK:SETRGB");
         return;
     }
 

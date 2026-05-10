@@ -1298,6 +1298,62 @@ function tlDeleteBlock(lightId, idx) {
     _tlAutoSave(lightId);
 }
 
+// ── Play button state ─────────────────────────────────────────────────────────
+
+const _tlPlayPolling = {};  // lightId → intervalId
+
+function _tlSetPlaying(lightId, playing) {
+    const btn = document.getElementById(`light${lightId}-tl-play`);
+    if (!btn) return;
+    if (playing) {
+        btn.innerHTML = '⏹ Stop';
+        btn.classList.add('tl-playing');
+        btn.onclick = () => tlStop(lightId);
+    } else {
+        btn.innerHTML = '&#9654; Play';
+        btn.classList.remove('tl-playing');
+        btn.onclick = () => tlPlay(lightId);
+    }
+}
+
+function _tlStartPolling(lightId) {
+    clearInterval(_tlPlayPolling[lightId]);
+    _tlPlayPolling[lightId] = setInterval(async () => {
+        const data = await fetch(`/api/lights/${lightId}/timeline`).then(r => r.json()).catch(() => null);
+        if (!data?.playing) {
+            clearInterval(_tlPlayPolling[lightId]);
+            _tlSetPlaying(lightId, false);
+        }
+    }, 600);
+}
+
+let _mtPlayPolling = null;
+
+function _mtSetPlaying(playing) {
+    const btn = document.getElementById('mt-play-btn');
+    if (!btn) return;
+    if (playing) {
+        btn.innerHTML = '⏹ Stop';
+        btn.classList.add('tl-playing');
+        btn.onclick = () => mtStop();
+    } else {
+        btn.innerHTML = '&#9654; Play All';
+        btn.classList.remove('tl-playing');
+        btn.onclick = () => mtPlay();
+    }
+}
+
+function _mtStartPolling() {
+    clearInterval(_mtPlayPolling);
+    _mtPlayPolling = setInterval(async () => {
+        const data = await fetch('/api/master-timeline').then(r => r.json()).catch(() => null);
+        if (!data?.playing) {
+            clearInterval(_mtPlayPolling);
+            _mtSetPlaying(false);
+        }
+    }, 600);
+}
+
 // ── Auto-save / load per-light timeline to localStorage ──────────────────────
 
 function _tlAutoSave(lightId) {
@@ -1329,7 +1385,6 @@ function _tlAutoLoad(lightId) {
 
 async function tlPlay(lightId) {
     _tlInit(lightId);
-    // Sort blocks by start time before pushing to server
     const blocks = [..._tlBlocks[lightId]].sort((a, b) => (a.start ?? 0) - (b.start ?? 0));
     const transitions = _tlTrUI[lightId].map(tr => _tlTrToServer(tr.mode, tr.duration));
     await fetch(`/api/lights/${lightId}/timeline`, {
@@ -1338,12 +1393,16 @@ async function tlPlay(lightId) {
         body: JSON.stringify({ blocks, transitions, loop: _tlLoop[lightId] })
     });
     const res = await fetch(`/api/lights/${lightId}/timeline/play`, { method: 'POST' }).then(r => r.json()).catch(() => null);
-    if (res?.error) showNotification(res.error, 'error');
-    else showNotification(`Playing ${blocks.length} blocks`, 'info');
+    if (res?.error) { showNotification(res.error, 'error'); return; }
+    showNotification(`Playing ${blocks.length} blocks`, 'info');
+    _tlSetPlaying(lightId, true);
+    _tlStartPolling(lightId);
 }
 
 async function tlStop(lightId) {
+    clearInterval(_tlPlayPolling[lightId]);
     await fetch(`/api/lights/${lightId}/timeline/stop`, { method: 'POST' });
+    _tlSetPlaying(lightId, false);
 }
 
 function tlToggleLoop(lightId) {
@@ -1718,10 +1777,14 @@ async function mtPlay() {
     });
     await fetch('/api/master-timeline/play', { method: 'POST' });
     showNotification('Master timeline playing', 'info');
+    _mtSetPlaying(true);
+    _mtStartPolling();
 }
 
 async function mtStop() {
+    clearInterval(_mtPlayPolling);
     await fetch('/api/master-timeline/stop', { method: 'POST' });
+    _mtSetPlaying(false);
 }
 
 function mtToggleLoop() {
