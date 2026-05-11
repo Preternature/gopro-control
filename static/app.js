@@ -1328,6 +1328,37 @@ function _tlStartPolling(lightId) {
 }
 
 let _mtPlayPolling = null;
+let _mtPlayStart   = null;
+let _mtPlayheadRaf = null;
+
+function _mtStartPlayhead(dur) {
+    _mtPlayStart = Date.now();
+    const ph = document.getElementById('mt-playhead');
+    if (ph) ph.classList.add('visible');
+    const tick = () => {
+        const ph2 = document.getElementById('mt-playhead');
+        if (!ph2) return;
+        const elapsed = (Date.now() - _mtPlayStart) / 1000;
+        const tl = document.getElementById('mt-timeline');
+        if (tl) {
+            const canvasW = tl.offsetWidth - 110;
+            ph2.style.left = (110 + Math.min(elapsed / dur, 1) * canvasW) + 'px';
+        }
+        if (elapsed < dur) {
+            _mtPlayheadRaf = requestAnimationFrame(tick);
+        } else {
+            ph2.classList.remove('visible');
+            _mtPlayheadRaf = null;
+        }
+    };
+    _mtPlayheadRaf = requestAnimationFrame(tick);
+}
+
+function _mtStopPlayhead() {
+    if (_mtPlayheadRaf) { cancelAnimationFrame(_mtPlayheadRaf); _mtPlayheadRaf = null; }
+    const ph = document.getElementById('mt-playhead');
+    if (ph) ph.classList.remove('visible');
+}
 
 function _mtSetPlaying(playing) {
     const btn = document.getElementById('mt-play-btn');
@@ -1336,10 +1367,12 @@ function _mtSetPlaying(playing) {
         btn.innerHTML = '⏹ Stop';
         btn.classList.add('tl-playing');
         btn.onclick = () => mtStop();
+        _mtStartPlayhead(_mt.duration);
     } else {
         btn.innerHTML = '&#9654; Play All';
         btn.classList.remove('tl-playing');
         btn.onclick = () => mtPlay();
+        _mtStopPlayhead();
     }
 }
 
@@ -1405,6 +1438,19 @@ async function tlStop(lightId) {
     _tlSetPlaying(lightId, false);
 }
 
+async function stopAllLights() {
+    for (const id of Object.keys(_tlPlayPolling)) {
+        clearInterval(_tlPlayPolling[id]);
+        _tlSetPlaying(id, false);
+    }
+    const ids = (_lightsCache || []).map(l => l.id);
+    await Promise.all([
+        ...ids.map(id => fetch(`/api/lights/${id}/timeline/stop`, { method: 'POST' }).catch(() => {})),
+        ...ids.map(id => fetch(`/api/lights/${id}/off`,           { method: 'POST' }).catch(() => {})),
+    ]);
+    showNotification('All lights stopped', 'info');
+}
+
 function tlToggleLoop(lightId) {
     _tlInit(lightId);
     _tlLoop[lightId] = !_tlLoop[lightId];
@@ -1416,9 +1462,10 @@ function tlToggleLoop(lightId) {
 async function tlSave(lightId) {
     _tlInit(lightId);
     const data = {
-        blocks: _tlBlocks[lightId],
+        blocks:      _tlBlocks[lightId],
         transitions: _tlTrUI[lightId],
-        loop: _tlLoop[lightId]
+        loop:        _tlLoop[lightId],
+        duration:    _tlDuration[lightId] || 30,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
@@ -1457,11 +1504,10 @@ const _mt = {
     selected:    null, // {track, idx}
 };
 
-// Track config (cameras are stubs until next session)
 const MT_TRACK_DEFS = [
-    { key: 'rail', label: 'Rail',     color: '#4caf50', stub: false },
-    { key: 'cam1', label: 'Camera 1', color: '#0099ff', stub: true  },
-    { key: 'cam2', label: 'Camera 2', color: '#ff9900', stub: true  },
+    { key: 'rail', label: 'Rail',     color: '#4caf50' },
+    { key: 'cam1', label: 'Camera 1', color: '#0099ff' },
+    { key: 'cam2', label: 'Camera 2', color: '#ff9900' },
 ];
 
 function _mtPx(sec) {
@@ -1499,12 +1545,11 @@ function mtRender() {
                 <div class="mt-resize-handle" onmousedown="mtResizeMouseDown(event,'${td.key}',${i})"></div>
             </div>`;
         }).join('');
-        const stubNote = td.stub ? '<span style="font-size:0.65rem;color:#555;padding-left:6px">(soon)</span>' : '';
         return `<div class="mt-row">
-            <div class="mt-row-label">${td.label}${stubNote}</div>
+            <div class="mt-row-label">${td.label}</div>
             <div class="mt-row-canvas" id="mt-canvas-${td.key}">
                 ${blocksHtml}
-                ${!td.stub ? `<button class="mt-add-btn" onclick="mtAddBlock('${td.key}')">+</button>` : ''}
+                <button class="mt-add-btn" onclick="mtAddBlock('${td.key}')">+</button>
             </div>
         </div>`;
     }).join('');
@@ -1540,6 +1585,13 @@ function mtRender() {
     }).join('');
 
     tl.innerHTML = ruler + nonLightRows + lightRows;
+    // Keep playhead alive across re-renders
+    if (!document.getElementById('mt-playhead')) {
+        const ph = document.createElement('div');
+        ph.id = 'mt-playhead';
+        ph.className = 'mt-playhead';
+        tl.appendChild(ph);
+    }
     mtRenderEditor();
 }
 
@@ -1590,6 +1642,16 @@ function mtRenderEditor() {
         <label>Direction <select onchange="mtBlockProp('${sel.track}',${sel.idx},'direction',this.value)">${dirOpts}</select></label>
         <label>Speed(μs) <input type="number" min="10" max="2000" value="${b.speed||91}" style="width:65px"
             onchange="mtBlockProp('${sel.track}',${sel.idx},'speed',+this.value)"></label>`;
+    } else if (sel.track === 'cam1' || sel.track === 'cam2') {
+        const actionOpts = [
+            { v: 'video_start', l: 'Start Recording' },
+            { v: 'video_stop',  l: 'Stop Recording'  },
+            { v: 'photo',       l: 'Take Photo'       },
+        ].map(({ v, l }) =>
+            `<option value="${v}"${b.action===v?' selected':''}>${l}</option>`
+        ).join('');
+        html += `
+        <label>Action <select onchange="mtBlockProp('${sel.track}',${sel.idx},'action',this.value)">${actionOpts}</select></label>`;
     }
 
     html += `<button class="btn btn-sm btn-danger" onclick="mtDeleteBlock('${sel.track}',${sel.idx})">Delete</button></div>`;
@@ -1628,6 +1690,11 @@ function mtAddBlock(track, lightId = null) {
         const last   = blocks[blocks.length - 1];
         const start  = last ? last.start + last.duration : 0;
         blocks.push({ start, duration: 10.0, direction: 'forward', speed: 91 });
+    } else if (track === 'cam1' || track === 'cam2') {
+        const blocks = _mt.tracks[track];
+        const last   = blocks[blocks.length - 1];
+        const start  = last ? last.start + last.duration : 0;
+        blocks.push({ start, duration: 0.5, action: 'video_start' });
     }
     _mt.selected = null;
     mtRender();
@@ -1868,6 +1935,7 @@ async function projectLoad(input) {
         const loopB = document.getElementById(`light${id}-tl-loop`);
         if (loopB) loopB.classList.toggle('tl-loop-on', _tlLoop[id]);
         tlRenderCanvas(id);
+        _tlAutoSave(id);   // persist restored duration to localStorage
     }
 
     mtRender();

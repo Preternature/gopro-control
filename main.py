@@ -281,6 +281,20 @@ def _compile_master_events() -> list:
     evs.sort(key=lambda e: e["time"])
     return evs
 
+def _fire_camera_action(cam_id: int, action: str):
+    c = get_cam(cam_id)
+    if not c:
+        return
+    try:
+        if action == 'video_start':
+            c['cam'].start_video()
+        elif action == 'video_stop':
+            c['cam'].stop_video()
+        elif action == 'photo':
+            c['cam'].take_photo()
+    except Exception as e:
+        print(f"[camera] cam{cam_id} action={action} error: {e}")
+
 def _fire_master_light(ev: dict):
     ls, block, next_block = ev["ls"], ev["block"], ev.get("next_block")
     r, g, b = _hex_to_rgb(block["color"])
@@ -297,6 +311,11 @@ def _fire_master_light(ev: dict):
                 {"color": block["color"],      "brightness": block["brightness"]},
                 {"color": next_block["color"], "brightness": next_block["brightness"]},
                 tr, _master_tl)
+        # If there's a gap before the next block starts, turn off the light for that gap.
+        # The next block's _fire_master_light will re-enable it at the right time.
+        gap = float(next_block["start"]) - (float(block["start"]) + float(block["duration"]))
+        if gap > 0.05 and not _master_tl["_stop"]:
+            _turn_off_light(ls)
     else:
         # Last block — turn off after its duration elapses
         time.sleep(float(block["duration"]))
@@ -322,7 +341,9 @@ def _master_playback():
                         time.sleep(0.05)
                         arduino.send("U" if blk.get("direction","forward")=="forward" else "D")
                     elif etype == "camera":
-                        pass  # camera actions wired up next session
+                        threading.Thread(target=_fire_camera_action,
+                                         args=(ev["cam_id"], ev["block"].get("action", "")),
+                                         daemon=True).start()
                     elif etype == "light":
                         threading.Thread(target=_fire_master_light, args=(ev,), daemon=True).start()
             if all(fired) and (time.time() - t0) >= _master_tl["duration"]:
@@ -1092,6 +1113,9 @@ def light_timeline_stop(light_id):
     tl = _tl(light_id)
     tl['_stop'] = True
     tl['playing'] = False
+    ls = lights.get(light_id)
+    if ls:
+        _turn_off_light(ls)
     return jsonify({"success": True})
 
 # === SocketIO Events ===
