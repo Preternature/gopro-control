@@ -864,6 +864,7 @@ function _buildLightPanel(status) {
         <div class="light-timeline">
             <div class="tl-toolbar">
                 <button class="btn btn-sm btn-primary" onclick="tlAddBlock(${id})">+ Block</button>
+                <button class="btn btn-sm btn-secondary" onclick="tlPasteBlock(${id})" title="Paste copied block (Ctrl+V)">Paste</button>
                 <button class="btn btn-sm btn-play" id="light${id}-tl-play" onclick="tlPlay(${id})">&#9654; Play</button>
                 <button class="btn btn-sm btn-secondary" onclick="tlStop(${id})">&#9632; Stop</button>
                 <button class="btn btn-sm tl-loop-btn" id="light${id}-tl-loop" onclick="tlToggleLoop(${id})" title="Loop">&#8635; Loop</button>
@@ -875,7 +876,7 @@ function _buildLightPanel(status) {
                     Total<input type="number" id="light${id}-tl-duration" min="1" step="1"
                         value="${_tlDuration[id] || 30}"
                         style="width:52px;padding:2px 4px;font-size:0.75rem;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:3px;color:var(--text-primary)"
-                        onchange="tlSetDuration(${id},+this.value)">s
+                        oninput="tlSetDuration(${id},+this.value)">s
                 </label>
             </div>
             <div class="tl-canvas" id="light${id}-tl-canvas"></div>
@@ -1002,6 +1003,9 @@ const _tlDuration    = {};  // lightId → explicit total seconds
 
 let _tlDrag = null;  // active drag: {type:'move'|'resize', lightId, idx, startX, origVal, totalDur, canvasWidth}
 
+let _snapEnabled    = true;   // global snap-to-blocks toggle
+let _blockClipboard = null;   // { type: 'light'|'rail'|'cam1'|'cam2', block: {...} }
+
 const TL_TRANSITION_MODES = ['cut', 'fade', 'dissolve'];
 // cut     = instant_start/instant_start
 // fade    = gradual/gradual
@@ -1024,10 +1028,11 @@ function _tlTrFromServer(tr) {
 const _tlTrUI = {}; // lightId → [{mode, duration}]
 
 function _tlInit(lightId) {
-    if (!_tlBlocks[lightId])      _tlBlocks[lightId]      = [];
-    if (!_tlTrUI[lightId])        _tlTrUI[lightId]        = [];
-    if (!_tlLoop[lightId])        _tlLoop[lightId]        = false;
-    if (_tlSelected[lightId] === undefined) _tlSelected[lightId] = null;
+    if (!_tlBlocks[lightId])                _tlBlocks[lightId]      = [];
+    if (!_tlTrUI[lightId])                  _tlTrUI[lightId]        = [];
+    if (!_tlLoop[lightId])                  _tlLoop[lightId]        = false;
+    if (_tlSelected[lightId] === undefined) _tlSelected[lightId]    = null;
+    if (_tlDuration[lightId] === undefined) _tlDuration[lightId]    = 30;
     if (!_tlDuration[lightId])    _tlDuration[lightId]    = 30;
 }
 
@@ -1118,23 +1123,32 @@ function tlRenderCanvas(lightId) {
         const leftPct = (start / duration * 100).toFixed(3);
         const wPct    = (b.duration / duration * 100).toFixed(3);
 
+        // Fade-in / fade-out overlays (% of block width, capped at 50%)
+        const fiPct = (b.fadeIn  > 0) ? Math.min(50, b.fadeIn  / b.duration * 100).toFixed(1) : 0;
+        const foPct = (b.fadeOut > 0) ? Math.min(50, b.fadeOut / b.duration * 100).toFixed(1) : 0;
+
         html += `<div class="tl-block${sel ? ' tl-block-sel' : ''}"
             style="left:${leftPct}%;width:${wPct}%;background:${dispCol}"
             onmousedown="tlBlockMouseDown(event,${lightId},${i})"
             onclick="tlSelectBlock(${lightId},${i})"
             title="${b.duration.toFixed(1)}s @ ${start.toFixed(1)}s">
+            <div class="tl-resize-handle left" onmousedown="tlResizeLeftMouseDown(event,${lightId},${i})"></div>
+            ${fiPct > 0 ? `<div class="tl-fade-in" style="width:${fiPct}%"></div>` : ''}
             <span class="tl-block-label">${b.duration.toFixed(1)}s</span>
+            ${foPct > 0 ? `<div class="tl-fade-out" style="width:${foPct}%"></div>` : ''}
             <div class="tl-resize-handle" onmousedown="tlResizeMouseDown(event,${lightId},${i})"></div>
         </div>`;
 
-        // Transition segment
+        // Transition: only render when blocks are actually adjacent (snapped)
         if (i < blocks.length - 1) {
-            const tr = trs[i] ?? { mode: 'cut', duration: 1.0 };
-            if (tr.mode !== 'cut' && tr.duration > 0) {
+            const nb  = blocks[i + 1];
+            const gap = (nb.start ?? 0) - (start + b.duration);
+            const isAdjacent = Math.abs(gap) < 0.12;
+            const tr  = trs[i] ?? { mode: 'cut', duration: 1.0 };
+            if (isAdjacent && tr.mode !== 'cut' && tr.duration > 0) {
                 const trStart = start + b.duration;
                 const trLeft  = (trStart / duration * 100).toFixed(3);
                 const trW     = (tr.duration / duration * 100).toFixed(3);
-                const nb      = blocks[i + 1];
                 const nbri    = nb.brightness / 100;
                 const nr  = parseInt(nb.color.slice(1,3), 16);
                 const ng  = parseInt(nb.color.slice(3,5), 16);
@@ -1143,9 +1157,6 @@ function tlRenderCanvas(lightId) {
                 html += `<div class="tl-transition tl-tr-gradual"
                     style="left:${trLeft}%;width:${trW}%;background:linear-gradient(to right,${dispCol},${nextCol})"
                     title="${tr.mode} ${tr.duration}s">~</div>`;
-            } else {
-                const cutLeft = ((start + b.duration) / duration * 100).toFixed(3);
-                html += `<div class="tl-cut-marker" style="left:${cutLeft}%"></div>`;
             }
         }
     }
@@ -1157,18 +1168,51 @@ function tlRenderCanvas(lightId) {
 
 // ── Drag to move / resize blocks ─────────────────────────────────────────────
 
+// Returns an array of snap candidate positions (seconds) for a given light,
+// excluding the block currently being dragged.
+function _tlSnapTargets(lightId, excludeIdx) {
+    const targets = [0];
+    for (let i = 0; i < (_tlBlocks[lightId] || []).length; i++) {
+        if (i === excludeIdx) continue;
+        const b = _tlBlocks[lightId][i];
+        targets.push(b.start ?? 0);
+        targets.push((b.start ?? 0) + b.duration);
+    }
+    return targets;
+}
+
+// Snap a value to the nearest candidate within threshold (seconds). Returns
+// the snapped value, or the original value if nothing is within range.
+function _tlSnap(targets, value, threshold) {
+    if (!_snapEnabled) return value;
+    let best = value, bestDist = threshold;
+    for (const t of targets) {
+        const d = Math.abs(value - t);
+        if (d < bestDist) { best = t; bestDist = d; }
+    }
+    return best;
+}
+
+function toggleSnap() {
+    _snapEnabled = !_snapEnabled;
+    document.querySelectorAll('.snap-toggle-btn').forEach(b =>
+        b.classList.toggle('tl-loop-on', _snapEnabled));
+}
+
 function tlBlockMouseDown(e, lightId, idx) {
     if (e.target.classList.contains('tl-resize-handle')) return;
     e.preventDefault();
     const canvas = document.getElementById(`light${lightId}-tl-canvas`);
     if (!canvas) return;
+    const block = _tlBlocks[lightId]?.[idx];
+    if (!block) return;
     _tlDrag = {
-        type:       'move',
-        lightId,
-        idx,
-        startX:     e.clientX,
-        origVal:    _tlBlocks[lightId][idx].start ?? 0,
-        totalDur:   _tlDuration[lightId] || 30,
+        type:        'move',
+        lightId, idx,
+        startX:      e.clientX,
+        origStart:   block.start ?? 0,
+        origDur:     block.duration,
+        totalDur:    _tlDuration[lightId] || 30,
         canvasWidth: canvas.getBoundingClientRect().width,
     };
 }
@@ -1178,28 +1222,67 @@ function tlResizeMouseDown(e, lightId, idx) {
     e.stopPropagation();
     const canvas = document.getElementById(`light${lightId}-tl-canvas`);
     if (!canvas) return;
+    const block = _tlBlocks[lightId]?.[idx];
+    if (!block) return;
     _tlDrag = {
-        type:       'resize',
-        lightId,
-        idx,
-        startX:     e.clientX,
-        origVal:    _tlBlocks[lightId][idx].duration,
-        totalDur:   _tlDuration[lightId] || 30,
+        type:        'resize',
+        lightId, idx,
+        startX:      e.clientX,
+        origStart:   block.start ?? 0,
+        origDur:     block.duration,
+        totalDur:    _tlDuration[lightId] || 30,
+        canvasWidth: canvas.getBoundingClientRect().width,
+    };
+}
+
+function tlResizeLeftMouseDown(e, lightId, idx) {
+    e.preventDefault();
+    e.stopPropagation();
+    const canvas = document.getElementById(`light${lightId}-tl-canvas`);
+    if (!canvas) return;
+    const block = _tlBlocks[lightId]?.[idx];
+    if (!block) return;
+    _tlDrag = {
+        type:        'resize-left',
+        lightId, idx,
+        startX:      e.clientX,
+        origStart:   block.start ?? 0,
+        origDur:     block.duration,
+        totalDur:    _tlDuration[lightId] || 30,
         canvasWidth: canvas.getBoundingClientRect().width,
     };
 }
 
 document.addEventListener('mousemove', e => {
     if (!_tlDrag) return;
-    const { type, lightId, idx, startX, origVal, totalDur, canvasWidth } = _tlDrag;
+    const { type, lightId, idx, startX, origStart, origDur, totalDur, canvasWidth } = _tlDrag;
     const dSec = (e.clientX - startX) / canvasWidth * totalDur;
     const block = _tlBlocks[lightId]?.[idx];
     if (!block) return;
+
+    const snapThresh = 10 / canvasWidth * totalDur;
+    const snaps      = _tlSnapTargets(lightId, idx);
+
     if (type === 'move') {
-        block.start = Math.max(0, Math.min(totalDur - block.duration, origVal + dSec));
-        block.start = Math.round(block.start * 10) / 10;
-    } else {
-        block.duration = Math.max(0.1, Math.round((origVal + dSec) * 10) / 10);
+        let s = Math.max(0, Math.min(totalDur - origDur, origStart + dSec));
+        // Snap whichever edge is closer to a candidate
+        const sl = _tlSnap(snaps, s,          snapThresh);
+        const sr = _tlSnap(snaps, s + origDur, snapThresh);
+        if (sl !== s)              s = Math.max(0, sl);
+        else if (sr !== s + origDur) s = Math.max(0, sr - origDur);
+        block.start = Math.round(s * 100) / 100;
+    } else if (type === 'resize') {
+        // Right edge moves; left edge (block.start) is fixed
+        let right = origStart + origDur + dSec;
+        right = _tlSnap(snaps, right, snapThresh);
+        block.duration = Math.max(0.1, Math.round((right - origStart) * 100) / 100);
+    } else if (type === 'resize-left') {
+        // Left edge moves; right edge (origStart + origDur) is fixed
+        let s = origStart + dSec;
+        s = _tlSnap(snaps, s, snapThresh);
+        s = Math.max(0, Math.min(origStart + origDur - 0.1, s));
+        block.start    = Math.round(s * 100) / 100;
+        block.duration = Math.round((origStart + origDur - s) * 100) / 100;
     }
     tlRenderCanvas(lightId);
 });
@@ -1222,10 +1305,15 @@ function tlRenderEditor(lightId) {
         return;
     }
     const b = blocks[sel];
-    const tr = sel > 0 ? (_tlTrUI[lightId][sel - 1] ?? { mode: 'cut', duration: 1.0 }) : null;
+    // Show transition-in controls only when adjacent to previous block
+    const prevBlock = sel > 0 ? blocks[sel - 1] : null;
+    const isAdjacentToPrev = prevBlock &&
+        Math.abs(((prevBlock.start ?? 0) + prevBlock.duration) - (b.start ?? 0)) < 0.12;
+    const tr = isAdjacentToPrev ? (_tlTrUI[lightId][sel - 1] ?? { mode: 'cut', duration: 1.0 }) : null;
     const trModeOpts = TL_TRANSITION_MODES.map(m =>
         `<option value="${m}"${tr?.mode === m ? ' selected' : ''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`
     ).join('');
+    const halfDur = (b.duration / 2).toFixed(1);
     editor.innerHTML = `
         <div class="tl-edit-row">
             <label>Color <input type="color" value="${b.color}" onchange="tlBlockProp(${lightId},${sel},'color',this.value)"></label>
@@ -1233,7 +1321,14 @@ function tlRenderEditor(lightId) {
                 oninput="tlBlockProp(${lightId},${sel},'brightness',+this.value);this.nextSibling.textContent=this.value+'%'"><span>${b.brightness}%</span></label>
             <label>Dur(s) <input type="number" min="0.1" step="0.1" value="${b.duration}" style="width:60px"
                 onchange="tlBlockProp(${lightId},${sel},'duration',+this.value)"></label>
+            <button class="btn btn-sm btn-secondary" onclick="tlCopyBlock(${lightId},${sel})">Copy</button>
             <button class="btn btn-sm btn-danger" onclick="tlDeleteBlock(${lightId},${sel})">Delete</button>
+        </div>
+        <div class="tl-edit-row">
+            <label>Fade In <input type="number" min="0" max="${halfDur}" step="0.1" value="${(b.fadeIn||0).toFixed(1)}" style="width:50px"
+                onchange="tlBlockProp(${lightId},${sel},'fadeIn',Math.min(+this.value,${halfDur}))">s</label>
+            <label>Fade Out <input type="number" min="0" max="${halfDur}" step="0.1" value="${(b.fadeOut||0).toFixed(1)}" style="width:50px"
+                onchange="tlBlockProp(${lightId},${sel},'fadeOut',Math.min(+this.value,${halfDur}))">s</label>
         </div>${tr !== null ? `
         <div class="tl-edit-row tl-tr-row">
             <span class="tl-tr-label">Transition in:</span>
@@ -1297,6 +1392,83 @@ function tlDeleteBlock(lightId, idx) {
     tlRenderCanvas(lightId);
     _tlAutoSave(lightId);
 }
+
+// ── Copy / Paste ──────────────────────────────────────────────────────────────
+
+function tlCopyBlock(lightId, idx) {
+    const b = _tlBlocks[lightId]?.[idx];
+    if (!b) return;
+    _blockClipboard = { type: 'light', block: { ...b } };
+    showNotification('Block copied', 'info');
+}
+
+function tlPasteBlock(lightId) {
+    if (!_blockClipboard) { showNotification('Nothing to paste', 'info'); return; }
+    _tlInit(lightId);
+    const blocks = _tlBlocks[lightId];
+    const last = blocks[blocks.length - 1];
+    const newStart = last ? Math.round(((last.start ?? 0) + last.duration) * 100) / 100 : 0;
+    blocks.push({ ..._blockClipboard.block, start: newStart });
+    if (blocks.length > 1) _tlTrUI[lightId].push({ mode: 'cut', duration: 1.0 });
+    _tlSelected[lightId] = blocks.length - 1;
+    tlRenderCanvas(lightId);
+    _tlAutoSave(lightId);
+    showNotification('Block pasted', 'success');
+}
+
+function mtCopyBlock() {
+    const sel = _mt.selected;
+    if (!sel) return;
+    if (sel.track === 'light') {
+        const b = _tlBlocks[sel.lightId]?.[sel.blockIdx];
+        if (!b) return;
+        _blockClipboard = { type: 'light', block: { ...b } };
+    } else {
+        const b = _mt.tracks[sel.track]?.[sel.idx];
+        if (!b) return;
+        _blockClipboard = { type: sel.track, block: { ...b } };
+    }
+    showNotification('Block copied', 'info');
+}
+
+function mtPasteBlock() {
+    const sel = _mt.selected;
+    if (!_blockClipboard) { showNotification('Nothing to paste', 'info'); return; }
+    if (sel?.track === 'light') {
+        if (_blockClipboard.type !== 'light') { showNotification('Incompatible block type', 'info'); return; }
+        tlPasteBlock(sel.lightId);
+        return;
+    }
+    const track = sel?.track;
+    if (!track || !_mt.tracks[track]) { showNotification('Select a track block first', 'info'); return; }
+    if (_blockClipboard.type !== track) { showNotification('Incompatible block type', 'info'); return; }
+    const blocks = _mt.tracks[track];
+    const last = blocks[blocks.length - 1];
+    const newStart = last ? Math.round((last.start + last.duration) * 10) / 10 : 0;
+    blocks.push({ ..._blockClipboard.block, start: newStart });
+    _mt.selected = { track, idx: blocks.length - 1 };
+    mtRender();
+    showNotification('Block pasted', 'success');
+}
+
+// Ctrl+C / Ctrl+V — skip when typing in an input
+document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+    if (e.ctrlKey && e.key === 'c') {
+        e.preventDefault();
+        if (_mt.selected) { mtCopyBlock(); return; }
+        for (const [lid, idx] of Object.entries(_tlSelected)) {
+            if (idx !== null && idx !== undefined) { tlCopyBlock(parseInt(lid), idx); return; }
+        }
+    }
+    if (e.ctrlKey && e.key === 'v') {
+        e.preventDefault();
+        if (_mt.selected) { mtPasteBlock(); return; }
+        for (const [lid, idx] of Object.entries(_tlSelected)) {
+            if (idx !== null && idx !== undefined) { tlPasteBlock(parseInt(lid)); return; }
+        }
+    }
+});
 
 // ── Play button state ─────────────────────────────────────────────────────────
 
@@ -1383,6 +1555,9 @@ function _mtStartPolling() {
         if (!data?.playing) {
             clearInterval(_mtPlayPolling);
             _mtSetPlaying(false);
+        } else if (!_mtPlayheadRaf) {
+            // Loop restarted on server — restart playhead animation
+            _mtStartPlayhead(_mt.duration);
         }
     }, 600);
 }
@@ -1541,6 +1716,7 @@ function mtRender() {
                 style="left:${left}%;width:${width}%;background:${td.color || '#666'}"
                 onmousedown="mtBlockMouseDown(event,'${td.key}',${i})"
                 onclick="mtSelectBlock('${td.key}',${i})" title="${label}">
+                <div class="mt-resize-handle left" onmousedown="mtResizeLeftMouseDown(event,'${td.key}',${i})"></div>
                 <span class="mt-block-label">${label}</span>
                 <div class="mt-resize-handle" onmousedown="mtResizeMouseDown(event,'${td.key}',${i})"></div>
             </div>`;
@@ -1562,10 +1738,13 @@ function mtRender() {
             const left  = (s.start    / total * 100).toFixed(3);
             const width = Math.max(s.duration / total * 100, 0.4).toFixed(3);
             if (s.type === 'block') {
-                return `<div class="mt-block"
+                const isSel = _mt.selected?.track === 'light' && _mt.selected?.lightId === lid && _mt.selected?.blockIdx === s.blockIdx;
+                return `<div class="mt-block${isSel ? ' mt-block-sel' : ''}"
                     style="left:${left}%;width:${width}%;background:${s.color};border-radius:3px"
                     onmousedown="mtLightBlockMouseDown(event,${lid},${s.blockIdx})"
-                    title="${s.duration.toFixed(1)}s">
+                    onclick="mtSelectLightBlock(${lid},${s.blockIdx})"
+                    title="${s.duration.toFixed(1)}s @ ${(s.start??0).toFixed(1)}s">
+                    <div class="mt-resize-handle left" onmousedown="mtLightResizeLeftMouseDown(event,${lid},${s.blockIdx})"></div>
                     <span class="mt-block-label">${s.duration.toFixed(1)}s</span>
                     <div class="mt-resize-handle" onmousedown="mtLightResizeMouseDown(event,${lid},${s.blockIdx})"></div>
                 </div>`;
@@ -1575,12 +1754,12 @@ function mtRender() {
                     title="${s.mode}"></div>`;
             }
         }).join('');
-        const empty = segs.length === 0
-            ? '<span style="font-size:0.7rem;color:#555;padding-left:8px;line-height:42px">Add blocks in the Lights section</span>'
-            : '';
         return `<div class="mt-row mt-row-light">
             <div class="mt-row-label" style="color:#e65100">${light.name || 'Light ' + lid}</div>
-            <div class="mt-row-canvas" id="mt-canvas-light-${lid}">${segsHtml}${empty}</div>
+            <div class="mt-row-canvas" id="mt-canvas-light-${lid}">
+                ${segsHtml}
+                <button class="mt-add-btn" onclick="tlAddBlock(${lid})" title="Add light block">+</button>
+            </div>
         </div>`;
     }).join('');
 
@@ -1604,15 +1783,77 @@ function mtSelectBlock(track, idx) {
     mtRender();
 }
 
+function mtSelectLightBlock(lightId, blockIdx) {
+    if (_mt.selected?.track === 'light' && _mt.selected?.lightId === lightId && _mt.selected?.blockIdx === blockIdx) {
+        _mt.selected = null;
+    } else {
+        _mt.selected = { track: 'light', lightId, blockIdx };
+    }
+    mtRender();
+}
+
+function mtLightBlockProp(lightId, blockIdx, key, val) {
+    if (_tlBlocks[lightId]?.[blockIdx] !== undefined) {
+        _tlBlocks[lightId][blockIdx][key] = val;
+        _tlAutoSave(lightId);
+        tlRenderCanvas(lightId); // re-renders per-light canvas AND master timeline
+    }
+}
+
+function mtLightDeleteBlock(lightId, blockIdx) {
+    _mt.selected = null;
+    tlDeleteBlock(lightId, blockIdx);
+}
+
 function mtRenderEditor() {
     const editor = document.getElementById('mt-editor');
     if (!editor) return;
     const sel = _mt.selected;
     if (!sel) { editor.innerHTML = ''; return; }
 
-    const isLight  = sel.track.startsWith('light_');
-    const lightId  = isLight ? sel.track.replace('light_','') : null;
-    const blocks   = isLight ? _mt.lightTracks[lightId] : _mt.tracks[sel.track];
+    // ── Light block from _tlBlocks (selected via master timeline row) ──────────
+    if (sel.track === 'light') {
+        const { lightId, blockIdx } = sel;
+        const b = _tlBlocks[lightId]?.[blockIdx];
+        if (!b) { editor.innerHTML = ''; return; }
+        const blocks = _tlBlocks[lightId] || [];
+        const prevBlock = blockIdx > 0 ? blocks[blockIdx - 1] : null;
+        const isAdjacentToPrev = prevBlock &&
+            Math.abs(((prevBlock.start ?? 0) + prevBlock.duration) - (b.start ?? 0)) < 0.12;
+        const tr = isAdjacentToPrev ? (_tlTrUI[lightId][blockIdx - 1] ?? { mode: 'cut', duration: 1.0 }) : null;
+        const trModeOpts = TL_TRANSITION_MODES.map(m =>
+            `<option value="${m}"${tr?.mode === m ? ' selected' : ''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`
+        ).join('');
+        const halfDur = (b.duration / 2).toFixed(1);
+        editor.innerHTML = `
+            <div class="tl-edit-row">
+                <label>Color <input type="color" value="${b.color}" onchange="mtLightBlockProp(${lightId},${blockIdx},'color',this.value)"></label>
+                <label>Bri <input type="range" min="0" max="100" value="${b.brightness}" style="width:80px"
+                    oninput="mtLightBlockProp(${lightId},${blockIdx},'brightness',+this.value);this.nextSibling.textContent=this.value+'%'"><span>${b.brightness}%</span></label>
+                <label>Start(s) <input type="number" min="0" step="0.1" value="${(b.start??0).toFixed(1)}" style="width:60px"
+                    onchange="mtLightBlockProp(${lightId},${blockIdx},'start',+this.value)"></label>
+                <label>Dur(s) <input type="number" min="0.1" step="0.1" value="${b.duration}" style="width:60px"
+                    onchange="mtLightBlockProp(${lightId},${blockIdx},'duration',+this.value)"></label>
+                <button class="btn btn-sm btn-secondary" onclick="mtCopyBlock()">Copy</button>
+                <button class="btn btn-sm btn-danger" onclick="mtLightDeleteBlock(${lightId},${blockIdx})">Delete</button>
+            </div>
+            <div class="tl-edit-row">
+                <label>Fade In <input type="number" min="0" max="${halfDur}" step="0.1" value="${(b.fadeIn||0).toFixed(1)}" style="width:50px"
+                    onchange="mtLightBlockProp(${lightId},${blockIdx},'fadeIn',Math.min(+this.value,${halfDur}))">s</label>
+                <label>Fade Out <input type="number" min="0" max="${halfDur}" step="0.1" value="${(b.fadeOut||0).toFixed(1)}" style="width:50px"
+                    onchange="mtLightBlockProp(${lightId},${blockIdx},'fadeOut',Math.min(+this.value,${halfDur}))">s</label>
+            </div>${tr !== null ? `
+            <div class="tl-edit-row tl-tr-row">
+                <span class="tl-tr-label">Transition in:</span>
+                <select onchange="tlTrProp(${lightId},${blockIdx-1},'mode',this.value)">${trModeOpts}</select>
+                <label>Dur(s) <input type="number" min="0.1" step="0.1" value="${tr.duration}" style="width:55px"
+                    onchange="tlTrProp(${lightId},${blockIdx-1},'duration',+this.value)"></label>
+            </div>` : ''}`;
+        return;
+    }
+
+    // ── Non-light tracks (rail, cam1, cam2) ────────────────────────────────────
+    const blocks   = _mt.tracks[sel.track];
     const b        = blocks?.[sel.idx];
     if (!b) { editor.innerHTML = ''; return; }
 
@@ -1622,19 +1863,7 @@ function mtRenderEditor() {
         <label>Dur(s) <input type="number" min="0.1" step="0.1" value="${b.duration}" style="width:65px"
             onchange="mtBlockProp('${sel.track}',${sel.idx},'duration',+this.value)"></label>`;
 
-    if (isLight) {
-        const tr = b.transition || { mode: 'cut', duration: 1.0 };
-        const trOpts = TL_TRANSITION_MODES.map(m =>
-            `<option value="${m}"${tr.mode===m?' selected':''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`
-        ).join('');
-        html += `
-        <label>Color <input type="color" value="${b.color}" onchange="mtBlockProp('${sel.track}',${sel.idx},'color',this.value)"></label>
-        <label>Bri <input type="range" min="0" max="100" value="${b.brightness}" style="width:80px"
-            oninput="mtBlockProp('${sel.track}',${sel.idx},'brightness',+this.value);this.nextSibling.textContent=this.value+'%'"><span>${b.brightness}%</span></label>
-        <label>Transition <select onchange="mtTrProp('${sel.track}',${sel.idx},'mode',this.value)">${trOpts}</select></label>
-        <label>Tr dur <input type="number" min="0.1" step="0.1" value="${tr.duration}" style="width:55px"
-            onchange="mtTrProp('${sel.track}',${sel.idx},'duration',+this.value)"></label>`;
-    } else if (sel.track === 'rail') {
+    if (sel.track === 'rail') {
         const dirOpts = ['forward','backward'].map(d =>
             `<option value="${d}"${b.direction===d?' selected':''}>${d.charAt(0).toUpperCase()+d.slice(1)}</option>`
         ).join('');
@@ -1654,21 +1883,19 @@ function mtRenderEditor() {
         <label>Action <select onchange="mtBlockProp('${sel.track}',${sel.idx},'action',this.value)">${actionOpts}</select></label>`;
     }
 
-    html += `<button class="btn btn-sm btn-danger" onclick="mtDeleteBlock('${sel.track}',${sel.idx})">Delete</button></div>`;
+    html += `<button class="btn btn-sm btn-secondary" onclick="mtCopyBlock()">Copy</button>
+             <button class="btn btn-sm btn-secondary" onclick="mtPasteBlock()">Paste</button>
+             <button class="btn btn-sm btn-danger" onclick="mtDeleteBlock('${sel.track}',${sel.idx})">Delete</button></div>`;
     editor.innerHTML = html;
 }
 
 function mtBlockProp(track, idx, key, val) {
-    const isLight = track.startsWith('light_');
-    const lid     = isLight ? track.replace('light_','') : null;
-    const blocks  = isLight ? _mt.lightTracks[lid] : _mt.tracks[track];
+    const blocks = _mt.tracks[track];
     if (blocks?.[idx] !== undefined) { blocks[idx][key] = val; mtRender(); }
 }
 
 function mtTrProp(track, idx, key, val) {
-    const isLight = track.startsWith('light_');
-    const lid     = isLight ? track.replace('light_','') : null;
-    const blocks  = isLight ? _mt.lightTracks[lid] : _mt.tracks[track];
+    const blocks = _mt.tracks[track];
     if (blocks?.[idx]) {
         if (!blocks[idx].transition) blocks[idx].transition = { mode: 'cut', duration: 1.0 };
         blocks[idx].transition[key] = val;
@@ -1701,9 +1928,7 @@ function mtAddBlock(track, lightId = null) {
 }
 
 function mtDeleteBlock(track, idx) {
-    const isLight = track.startsWith('light_');
-    const lid     = isLight ? track.replace('light_','') : null;
-    const blocks  = isLight ? _mt.lightTracks[lid] : _mt.tracks[track];
+    const blocks = _mt.tracks[track];
     if (blocks) { blocks.splice(idx, 1); _mt.selected = null; mtRender(); }
 }
 
@@ -1746,6 +1971,42 @@ function mtResizeMouseDown(e, track, idx) {
     };
 }
 
+function mtResizeLeftMouseDown(e, track, idx) {
+    e.preventDefault();
+    e.stopPropagation();
+    const canvas = document.getElementById(`mt-canvas-${track}`);
+    if (!canvas) return;
+    const block = _mt.tracks[track]?.[idx];
+    if (!block) return;
+    _mtDrag = {
+        type:          'resize-left',
+        track, idx,
+        startX:        e.clientX,
+        origStart:     block.start,
+        origRightEdge: block.start + block.duration,
+        totalDur:      _mt.duration,
+        canvasWidth:   canvas.getBoundingClientRect().width,
+    };
+}
+
+function mtLightResizeLeftMouseDown(e, lightId, blockIdx) {
+    e.preventDefault();
+    e.stopPropagation();
+    const canvas = document.getElementById(`mt-canvas-light-${lightId}`);
+    if (!canvas) return;
+    const block = _tlBlocks[lightId]?.[blockIdx];
+    if (!block) return;
+    _mtDrag = {
+        type:          'light-resize-left',
+        lightId, blockIdx,
+        startX:        e.clientX,
+        origStart:     block.start ?? 0,
+        origRightEdge: (block.start ?? 0) + block.duration,
+        totalDur:      _mt.duration,
+        canvasWidth:   canvas.getBoundingClientRect().width,
+    };
+}
+
 function mtLightBlockMouseDown(e, lightId, blockIdx) {
     if (e.target.classList.contains('mt-resize-handle')) return;
     e.preventDefault();
@@ -1782,7 +2043,7 @@ function mtLightResizeMouseDown(e, lightId, blockIdx) {
 
 document.addEventListener('mousemove', e => {
     if (!_mtDrag) return;
-    const { type, track, idx, lightId, blockIdx, startX, origVal, totalDur, canvasWidth } = _mtDrag;
+    const { type, track, idx, lightId, blockIdx, startX, origVal, origStart, origRightEdge, totalDur, canvasWidth } = _mtDrag;
     const dSec = (e.clientX - startX) / canvasWidth * totalDur;
     if (type === 'move' || type === 'resize') {
         const block = _mt.tracks[track]?.[idx];
@@ -1794,6 +2055,14 @@ document.addEventListener('mousemove', e => {
             block.duration = Math.max(0.1, Math.round((origVal + dSec) * 10) / 10);
         }
         mtRender();
+    } else if (type === 'resize-left') {
+        const block = _mt.tracks[track]?.[idx];
+        if (!block) return;
+        let s = Math.max(0, Math.min(origRightEdge - 0.1, origStart + dSec));
+        s = Math.round(s * 10) / 10;
+        block.start    = s;
+        block.duration = Math.round((origRightEdge - s) * 10) / 10;
+        mtRender();
     } else if (type === 'light-move' || type === 'light-resize') {
         const block = _tlBlocks[lightId]?.[blockIdx];
         if (!block) return;
@@ -1804,12 +2073,20 @@ document.addEventListener('mousemove', e => {
             block.duration = Math.max(0.1, Math.round((origVal + dSec) * 10) / 10);
         }
         tlRenderCanvas(lightId);  // also calls mtRender() internally
+    } else if (type === 'light-resize-left') {
+        const block = _tlBlocks[lightId]?.[blockIdx];
+        if (!block) return;
+        let s = Math.max(0, Math.min(origRightEdge - 0.1, origStart + dSec));
+        s = Math.round(s * 10) / 10;
+        block.start    = s;
+        block.duration = Math.round((origRightEdge - s) * 10) / 10;
+        tlRenderCanvas(lightId);
     }
 });
 
 document.addEventListener('mouseup', e => {
     if (_mtDrag) {
-        if (_mtDrag.type === 'light-move' || _mtDrag.type === 'light-resize') {
+        if (['light-move', 'light-resize', 'light-resize-left'].includes(_mtDrag.type)) {
             _tlAutoSave(_mtDrag.lightId);
         }
         _mtDrag = null;
@@ -1967,6 +2244,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     for (const light of _lightsCache) {
         _tlAutoLoad(light.id);
         tlRenderCanvas(light.id);
+        _tlAutoSave(light.id);  // migrate: re-save so duration field is always present
     }
     // Turn off all lights on page load so every session starts with a clean state
     const lightsData = await fetch('/api/lights').then(r => r.json()).catch(() => []);

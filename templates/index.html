@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GoPro Controller</title>
+    <title>LCA — Lights Camera Action</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="container">
 
         <header>
-            <h1>GoPro Controller</h1>
+            <h1>LCA</h1>
             <div class="header-statuses">
                 <div id="cam1-status" class="cam-status-pill disconnected">
                     <span class="status-dot"></span>
@@ -376,6 +376,7 @@
                 <div class="mt-toolbar">
                     <button class="btn btn-play btn-sm" id="mt-play-btn" onclick="mtPlay()">&#9654; Play All</button>
                     <button class="btn btn-sm tl-loop-btn" id="mt-loop-btn" onclick="mtToggleLoop()">&#8635; Loop</button>
+                    <button class="btn btn-sm tl-loop-btn tl-loop-on snap-toggle-btn" onclick="toggleSnap()" title="Toggle snap-to-blocks">Snap</button>
                     <label style="display:flex;align-items:center;gap:4px;font-size:0.8rem">
                         Duration <input type="number" id="mt-duration" value="60" min="1" style="width:55px"> s
                     </label>

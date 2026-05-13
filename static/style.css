@@ -914,7 +914,26 @@ input[type="number"] {
     background: rgba(255,255,255,0.25);
     z-index: 3;
 }
+.tl-resize-handle.left {
+    right: auto;
+    left: 0;
+}
 .tl-resize-handle:hover { background: rgba(255,255,255,0.55); }
+
+.tl-fade-in {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    background: linear-gradient(to right, rgba(0,0,0,0.88), transparent);
+    pointer-events: none;
+    border-radius: 3px 0 0 3px;
+}
+.tl-fade-out {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    background: linear-gradient(to left, rgba(0,0,0,0.88), transparent);
+    pointer-events: none;
+    border-radius: 0 3px 3px 0;
+}
 
 .tl-transition {
     position: absolute;
@@ -1178,6 +1197,7 @@ input[type="number"] {
     background: rgba(255,255,255,0.2);
     z-index: 3;
 }
+.mt-resize-handle.left { right: auto; left: 0; }
 .mt-resize-handle:hover { background: rgba(255,255,255,0.5); }
 
 .mt-block-label {
