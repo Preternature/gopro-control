@@ -42,6 +42,9 @@ class GoProConnection:
     USB_IP_PATTERN = r"172\.2\d\.1\d{2}\.51"
     GOPRO_PORT = 8080
 
+    # Class-level registry: name → USB IP. Prevents two instances from grabbing the same USB adapter.
+    _usb_ip_registry: dict = {}
+
     # Default WiFi credentials (first camera)
     DEFAULT_GOPRO_SSID = "GP25102353"
     HOME_SSID = "Bitterroot"
@@ -258,14 +261,24 @@ class GoProConnection:
             except Exception:
                 pass  # fall through to USB scan
 
-        usb_ip = self._find_usb_gopro()
-        if usb_ip:
+        for usb_ip in self._find_all_usb_gopros():
+            # Confirm this USB device is actually our camera by checking its SSID
+            try:
+                info = requests.get(
+                    f"http://{usb_ip}:{self.GOPRO_PORT}/gopro/camera/info", timeout=2
+                ).json()
+                if info.get("ap_ssid") != self.GOPRO_SSID:
+                    print(f"[{self.name}] USB {usb_ip} is '{info.get('ap_ssid')}', not '{self.GOPRO_SSID}' — skipping")
+                    continue
+            except Exception:
+                continue  # can't confirm identity, skip
             self.gopro_ip = usb_ip
             self.connection_type = "usb"
             self.base_url = f"http://{usb_ip}:{self.GOPRO_PORT}"
             self.connected = True
-            self._session = requests.Session()  # plain session — USB has unique IP, no binding needed
-            print(f"[{self.name}] Connected via USB at {usb_ip}")
+            self._session = requests.Session()
+            GoProConnection._usb_ip_registry[self.name] = usb_ip
+            print(f"[{self.name}] Connected via USB at {usb_ip} (confirmed {self.GOPRO_SSID})")
             return True
 
         print(f"[{self.name}] GoPro not found")
@@ -280,28 +293,28 @@ class GoProConnection:
         # Try to reconnect
         return self.connect()
 
-    def _find_usb_gopro(self) -> Optional[str]:
-        """Find the first GoPro connected via USB"""
+    def _find_all_usb_gopros(self) -> List[str]:
+        """Return all reachable USB GoPro IPs not already claimed by another camera instance."""
+        claimed_by_others = {
+            ip for name, ip in GoProConnection._usb_ip_registry.items()
+            if name != self.name
+        }
+        found = []
         try:
-            result = subprocess.run(
-                ["ipconfig"],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
+            result = subprocess.run(["ipconfig"], capture_output=True, text=True, timeout=5)
             ip_matches = re.findall(r"172\.2\d\.1\d{2}\.\d+", result.stdout)
             seen = set()
             for ip in ip_matches:
                 parts = ip.split('.')
                 gopro_ip = f"{parts[0]}.{parts[1]}.{parts[2]}.51"
-                if gopro_ip in seen:
+                if gopro_ip in seen or gopro_ip in claimed_by_others:
                     continue
                 seen.add(gopro_ip)
                 if self._test_ip(gopro_ip):
-                    return gopro_ip
+                    found.append(gopro_ip)
         except Exception as e:
-            print(f"[{self.name}] Error scanning for USB GoPro: {e}")
-        return None
+            print(f"[{self.name}] Error scanning for USB GoPros: {e}")
+        return found
 
     def _test_connection(self, ip: str) -> bool:
         """Instance wrapper for _test_ip (backward compat)"""
@@ -355,7 +368,8 @@ class GoProConnection:
                     return response.json()
                 return {"status": "success"}
             else:
-                print(f"[{self.name}] Command failed: {response.status_code}")
+                body = response.text[:300] if response.text else ""
+                print(f"[{self.name}] Command failed: {response.status_code} body={body}")
                 return None
         except requests.exceptions.RequestException as e:
             print(f"[{self.name}] Error sending command: {e}")

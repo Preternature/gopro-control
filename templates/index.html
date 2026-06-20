@@ -322,6 +322,20 @@
                     </div>
                 </div>
 
+                <!-- Tracking speed -->
+                <div class="control-group">
+                    <h3>Track Speed</h3>
+                    <div class="axis-slider-row">
+                        <span class="axis-label">Slow</span>
+                        <input type="range" id="track-speed" min="1" max="10" value="5"
+                               oninput="setTrackSpeed(+this.value);document.getElementById('track-speed-val').textContent=this.value">
+                        <span class="axis-label">Fast</span>
+                    </div>
+                    <div style="text-align:center;font-size:0.8rem;color:var(--text-secondary)">
+                        Speed: <span id="track-speed-val">5</span>
+                    </div>
+                </div>
+
             </div>
         </section>
 
@@ -407,7 +421,8 @@
     <div id="pip" class="pip hidden">
         <div class="pip-header" onmousedown="pipDragStart(event)">
             <span class="pip-title" id="pip-title">Preview</span>
-            <button class="pip-btn" onclick="pipFullscreen()" title="Fullscreen">&#x26F6;</button>
+            <button class="pip-btn" onclick="pipFullscreen(1)" title="Pop out Cam 1 (Win+Shift+Arrow to move, F11 to fullscreen)">1&#x26F6;</button>
+            <button class="pip-btn" onclick="pipFullscreen(2)" title="Pop out Cam 2 (Win+Shift+Arrow to move, F11 to fullscreen)">2&#x26F6;</button>
             <button class="pip-btn" onclick="pipToggleCollapse()" id="pip-collapse-btn" title="Collapse">&#8212;</button>
             <button class="pip-btn" onclick="pipClose()" title="Close">&#x2715;</button>
         </div>

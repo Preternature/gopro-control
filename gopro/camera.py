@@ -11,10 +11,10 @@ from .connection import GoProConnection
 class GoProCamera:
     """Camera control operations for GoPro Hero 12"""
 
-    # GoPro preset group IDs
-    _GROUP_VIDEO      = 1000
-    _GROUP_PHOTO      = 1001
-    _GROUP_TIMELAPSE  = 1002
+    # GoPro preset group IDs (strings as returned by /gopro/camera/presets/get)
+    _GROUP_VIDEO      = 'PRESET_GROUP_ID_VIDEO'
+    _GROUP_PHOTO      = 'PRESET_GROUP_ID_PHOTO'
+    _GROUP_TIMELAPSE  = 'PRESET_GROUP_ID_TIMELAPSE'
 
     def __init__(self, connection: GoProConnection):
         self.conn = connection
@@ -87,26 +87,66 @@ class GoProCamera:
             self.is_recording = False
         return result is not None
 
+    def _pause_stream_for_command(self) -> bool:
+        """Stop the GoPro-side UDP stream without killing FFmpeg.
+        Returns True if stream was active (caller should restart it after)."""
+        if not self.conn.stream_active:
+            return False
+        print(f"[{self.conn.name}] pausing camera stream for shutter command")
+        ok = self.conn.stop_preview_stream()
+        print(f"[{self.conn.name}] stream/stop returned: {ok}")
+        time.sleep(2.0)
+        return True
+
+    def _resume_stream_after_command(self) -> None:
+        """Restart the GoPro-side UDP stream. FFmpeg picks it back up automatically."""
+        print(f"[{self.conn.name}] resuming camera stream after shutter command")
+        self.conn.start_preview_stream()
+
     def take_photo(self) -> bool:
         """Take a single photo"""
         print(f"[{self.conn.name}] take_photo() start")
+        stream_paused = self._pause_stream_for_command()
         if not self.set_mode_photo():
             print(f"[{self.conn.name}] take_photo: set_mode_photo FAILED")
+            if stream_paused:
+                self._resume_stream_after_command()
             return False
-        time.sleep(0.5)  # Wait for mode change
+        time.sleep(1.0)
         print(f"[{self.conn.name}] take_photo: firing shutter...")
         result = self.shutter_on()
         print(f"[{self.conn.name}] take_photo: shutter_on returned {result}")
+        if stream_paused:
+            self._resume_stream_after_command()
         return result
 
     def start_video(self) -> bool:
         """Start video recording"""
+        stream_paused = self._pause_stream_for_command()
         if not self.set_mode_video():
+            if stream_paused:
+                self._resume_stream_after_command()
             return False
-        time.sleep(0.5)
+        time.sleep(1.0)
+        state = self.conn.get_camera_state()
+        if state:
+            s = state.get("status", {})
+            print(f"[{self.conn.name}] pre-shutter status keys (first 20): {list(s.keys())[:20]}")
+            print(f"[{self.conn.name}] pre-shutter state: recording={s.get('8')} sd={s.get('32')} mode={s.get('43')} stream={s.get('96')}")
         result = self.shutter_on()
+        if not result:
+            print(f"[{self.conn.name}] shutter/start failed, retrying in 1.0s...")
+            time.sleep(1.0)
+            result = self.shutter_on()
         if result:
             self.is_recording = True
+            # Restart stream so live preview continues during recording
+            if stream_paused:
+                time.sleep(0.3)
+                self._resume_stream_after_command()
+        else:
+            if stream_paused:
+                self._resume_stream_after_command()
         return result
 
     def stop_video(self) -> bool:

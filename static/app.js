@@ -21,13 +21,16 @@ function showNotification(message, type = 'info') {
 }
 
 async function apiCall(endpoint, method = 'GET', data = null) {
+    console.log(`[LCA] → ${method} /api${endpoint}`, data ?? '');
     try {
         const opts = { method, headers: { 'Content-Type': 'application/json' } };
         if (data) opts.body = JSON.stringify(data);
         const res = await fetch(`/api${endpoint}`, opts);
-        return await res.json();
+        const json = await res.json();
+        console.log(`[LCA] ← ${method} /api${endpoint} HTTP ${res.status}`, json);
+        return json;
     } catch (err) {
-        console.error('API error:', err);
+        console.error(`[LCA] ✗ ${method} /api${endpoint}`, err);
         showNotification('Connection error', 'error');
         return null;
     }
@@ -129,6 +132,7 @@ async function wakeWifiBle(camId) {
 // ─── Camera Actions ────────────────────────────────────────────────────────────
 
 async function camAction(camId, action) {
+    console.log(`[LCA] camAction cam${camId} action="${action}" recordingState=${camState[camId].recording}`);
     const endpoints = {
         'photo':        [`/${camId}/photo`, 'POST'],
         'video-start':  [`/${camId}/video/start`, 'POST'],
@@ -138,8 +142,10 @@ async function camAction(camId, action) {
     };
 
     const [endpoint, method] = endpoints[action];
-    const result = await apiCall(endpoint, method);
+    const body = action === 'video-stop' ? { save_to_pc: true } : null;
+    const result = await apiCall(endpoint, method, body);
 
+    console.log(`[LCA] camAction cam${camId} action="${action}" result=`, result);
     if (!result) return;
 
     if (action === 'photo') {
@@ -316,10 +322,26 @@ function pipClose() {
     [1, 2].forEach(id => stopPreview(id));
 }
 
-function pipFullscreen() {
-    // Fullscreen whichever stream is visible (prefer cam1 if both)
-    const active = [1, 2].find(id => el(`pip-stream-${id}`)?.style.display !== 'none');
-    if (active) enterFullscreen(`pip-img-${active}`);
+function pipFullscreen(camId) {
+    // If no camId given, use whichever stream is visible (prefer cam1)
+    const active = camId || [1, 2].find(id => el(`pip-stream-${id}`)?.style.display !== 'none');
+    if (!active) return;
+    const flipped   = camState[active]?.flipped;
+    const transform = flipped ? 'rotate(180deg)' : '';
+    const origin    = window.location.origin;
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>LCA \xb7 Cam ${active}</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box }
+  body { background:#000; display:flex; align-items:center; justify-content:center;
+         width:100vw; height:100vh; overflow:hidden }
+  img  { max-width:100%; max-height:100%; object-fit:contain; transform:${transform} }
+</style></head><body>
+<img src="${origin}/api/${active}/mjpeg">
+</body></html>`;
+    // Real OS window — Win+Shift+Arrow moves it to another monitor, then F11 to fullscreen there
+    const popup = window.open('', `lca-cam${active}`, 'width=960,height=720,resizable=yes');
+    if (popup) { popup.document.open(); popup.document.write(html); popup.document.close(); }
 }
 
 function pipToggleCollapse() {
@@ -638,6 +660,15 @@ function _syncTrackerLimits() {
     });
 }
 
+function setTrackSpeed(speed) {
+    // speed 1–10: linearly scales ramp rates and poll interval
+    apiCall('/tracker/params', 'POST', {
+        ramp_pan_rate:  speed * 0.5,          // 1→0.5°/s … 10→5.0°/s
+        ramp_tilt_rate: speed * 12,           // 1→12μs/s … 10→120μs/s
+        poll_interval:  Math.max(1.0, 4.0 - speed * 0.3), // 1→3.7s … 10→1.0s
+    });
+}
+
 function applyGimbalLimit() {
     _gimbalLimits.baseMin = Math.max(0,   Math.min(180,  parseInt(el('base-min')?.value ?? 45)));
     _gimbalLimits.baseMax = Math.max(0,   Math.min(180,  parseInt(el('base-max')?.value ?? 144)));
@@ -690,13 +721,29 @@ function arduinoSetCamUs(us) {
 // ─── Socket.IO ────────────────────────────────────────────────────────────────
 
 socket.on('connection_status', (data) => {
-    // Server emits cam1/cam2 booleans on socket connect
+    console.log('[LCA] socket connection_status', data);
     if (data.cam1 !== undefined) updateCamStatus(1, data.cam1);
     if (data.cam2 !== undefined) updateCamStatus(2, data.cam2);
 });
 
 socket.on('photo_taken', (data) => {
     if (data.success) showNotification(`Cam ${data.cam_id || '?'}: Photo captured!`, 'success');
+});
+
+socket.on('download_progress', (data) => {
+    console.log('[LCA] socket download_progress', data);
+    if (data.progress === 0) {
+        showNotification(`Cam ${data.cam_id}: Saving "${data.filename}" to PC...`, 'info');
+    }
+});
+
+socket.on('download_complete', (data) => {
+    console.log('[LCA] socket download_complete', data);
+    if (data.success) {
+        showNotification(`Cam ${data.cam_id}: Saved "${data.filename}"`, 'success');
+    } else {
+        showNotification(`Cam ${data.cam_id}: Auto-save failed — ${data.error || 'unknown error'}`, 'error');
+    }
 });
 
 // Keep-alive for both cameras
@@ -1123,9 +1170,29 @@ function tlRenderCanvas(lightId) {
         const leftPct = (start / duration * 100).toFixed(3);
         const wPct    = (b.duration / duration * 100).toFixed(3);
 
-        // Fade-in / fade-out overlays (% of block width, capped at 50%)
-        const fiPct = (b.fadeIn  > 0) ? Math.min(50, b.fadeIn  / b.duration * 100).toFixed(1) : 0;
-        const foPct = (b.fadeOut > 0) ? Math.min(50, b.fadeOut / b.duration * 100).toFixed(1) : 0;
+        // Fade-in overlay (left edge)
+        const fiPct = (b.fadeIn > 0) ? Math.min(50, b.fadeIn / b.duration * 100).toFixed(1) : 0;
+
+        // Right-transition overlay (inside block, right edge)
+        const nbBlock = blocks[i + 1];
+        const tr = b.transition || {};
+        let trOverlay = '';
+        if (nbBlock && (tr.duration || 0) > 0 && (tr.color || tr.brightness)) {
+            const trW = Math.min(50, tr.duration / b.duration * 100).toFixed(1);
+            let toColor;
+            if (tr.color) {
+                const nbri = nbBlock.brightness / 100;
+                const nr  = parseInt(nbBlock.color.slice(1,3), 16);
+                const ng  = parseInt(nbBlock.color.slice(3,5), 16);
+                const nbb = parseInt(nbBlock.color.slice(5,7), 16);
+                toColor = `rgb(${Math.round(nr*nbri)},${Math.round(ng*nbri)},${Math.round(nbb*nbri)})`;
+            } else {
+                // Brightness-only: fade toward next block's brightness level
+                const nextScale = nbBlock.brightness / 100;
+                toColor = `rgb(${Math.round(r*nextScale)},${Math.round(g*nextScale)},${Math.round(bb*nextScale)})`;
+            }
+            trOverlay = `<div class="tl-tr-overlay" style="width:${trW}%;background:linear-gradient(to right,transparent,${toColor})"></div>`;
+        }
 
         html += `<div class="tl-block${sel ? ' tl-block-sel' : ''}"
             style="left:${leftPct}%;width:${wPct}%;background:${dispCol}"
@@ -1135,30 +1202,9 @@ function tlRenderCanvas(lightId) {
             <div class="tl-resize-handle left" onmousedown="tlResizeLeftMouseDown(event,${lightId},${i})"></div>
             ${fiPct > 0 ? `<div class="tl-fade-in" style="width:${fiPct}%"></div>` : ''}
             <span class="tl-block-label">${b.duration.toFixed(1)}s</span>
-            ${foPct > 0 ? `<div class="tl-fade-out" style="width:${foPct}%"></div>` : ''}
+            ${trOverlay}
             <div class="tl-resize-handle" onmousedown="tlResizeMouseDown(event,${lightId},${i})"></div>
         </div>`;
-
-        // Transition: only render when blocks are actually adjacent (snapped)
-        if (i < blocks.length - 1) {
-            const nb  = blocks[i + 1];
-            const gap = (nb.start ?? 0) - (start + b.duration);
-            const isAdjacent = Math.abs(gap) < 0.12;
-            const tr  = trs[i] ?? { mode: 'cut', duration: 1.0 };
-            if (isAdjacent && tr.mode !== 'cut' && tr.duration > 0) {
-                const trStart = start + b.duration;
-                const trLeft  = (trStart / duration * 100).toFixed(3);
-                const trW     = (tr.duration / duration * 100).toFixed(3);
-                const nbri    = nb.brightness / 100;
-                const nr  = parseInt(nb.color.slice(1,3), 16);
-                const ng  = parseInt(nb.color.slice(3,5), 16);
-                const nbb = parseInt(nb.color.slice(5,7), 16);
-                const nextCol = `rgb(${Math.round(nr*nbri)},${Math.round(ng*nbri)},${Math.round(nbb*nbri)})`;
-                html += `<div class="tl-transition tl-tr-gradual"
-                    style="left:${trLeft}%;width:${trW}%;background:linear-gradient(to right,${dispCol},${nextCol})"
-                    title="${tr.mode} ${tr.duration}s">~</div>`;
-            }
-        }
     }
 
     canvas.innerHTML = html;
@@ -1304,16 +1350,14 @@ function tlRenderEditor(lightId) {
         editor.innerHTML = '';
         return;
     }
-    const b = blocks[sel];
-    // Show transition-in controls only when adjacent to previous block
+    const b        = blocks[sel];
     const prevBlock = sel > 0 ? blocks[sel - 1] : null;
-    const isAdjacentToPrev = prevBlock &&
-        Math.abs(((prevBlock.start ?? 0) + prevBlock.duration) - (b.start ?? 0)) < 0.12;
-    const tr = isAdjacentToPrev ? (_tlTrUI[lightId][sel - 1] ?? { mode: 'cut', duration: 1.0 }) : null;
-    const trModeOpts = TL_TRANSITION_MODES.map(m =>
-        `<option value="${m}"${tr?.mode === m ? ' selected' : ''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`
-    ).join('');
-    const halfDur = (b.duration / 2).toFixed(1);
+    const nextBlock = sel < blocks.length - 1 ? blocks[sel + 1] : null;
+    const hasLeftGap = !prevBlock ||
+        ((b.start ?? 0) - ((prevBlock.start ?? 0) + prevBlock.duration)) > 0.12;
+    const tr      = b.transition || { duration: 0, color: false, brightness: false };
+    const maxHalf = (b.duration / 2).toFixed(1);
+
     editor.innerHTML = `
         <div class="tl-edit-row">
             <label>Color <input type="color" value="${b.color}" onchange="tlBlockProp(${lightId},${sel},'color',this.value)"></label>
@@ -1323,18 +1367,29 @@ function tlRenderEditor(lightId) {
                 onchange="tlBlockProp(${lightId},${sel},'duration',+this.value)"></label>
             <button class="btn btn-sm btn-secondary" onclick="tlCopyBlock(${lightId},${sel})">Copy</button>
             <button class="btn btn-sm btn-danger" onclick="tlDeleteBlock(${lightId},${sel})">Delete</button>
-        </div>
+        </div>${hasLeftGap ? `
         <div class="tl-edit-row">
-            <label>Fade In <input type="number" min="0" max="${halfDur}" step="0.1" value="${(b.fadeIn||0).toFixed(1)}" style="width:50px"
-                onchange="tlBlockProp(${lightId},${sel},'fadeIn',Math.min(+this.value,${halfDur}))">s</label>
-            <label>Fade Out <input type="number" min="0" max="${halfDur}" step="0.1" value="${(b.fadeOut||0).toFixed(1)}" style="width:50px"
-                onchange="tlBlockProp(${lightId},${sel},'fadeOut',Math.min(+this.value,${halfDur}))">s</label>
-        </div>${tr !== null ? `
+            <label style="display:flex;align-items:center;gap:4px">
+                <input type="checkbox" ${(b.fadeIn||0)>0?'checked':''}
+                    onchange="tlBlockProp(${lightId},${sel},'fadeIn',this.checked?0.5:0)"> Fade in
+            </label>
+            ${(b.fadeIn||0)>0 ? `<label>Dur(s) <input type="number" min="0.1" max="${maxHalf}" step="0.1"
+                value="${(b.fadeIn).toFixed(1)}" style="width:55px"
+                onchange="tlBlockProp(${lightId},${sel},'fadeIn',Math.min(+this.value,${maxHalf}))"></label>` : ''}
+        </div>` : ''}${nextBlock ? `
         <div class="tl-edit-row tl-tr-row">
-            <span class="tl-tr-label">Transition in:</span>
-            <select onchange="tlTrProp(${lightId},${sel-1},'mode',this.value)">${trModeOpts}</select>
-            <label>Dur(s) <input type="number" min="0.1" step="0.1" value="${tr.duration}" style="width:55px"
-                onchange="tlTrProp(${lightId},${sel-1},'duration',+this.value)"></label>
+            <span class="tl-tr-label">&#8594; Transition:</span>
+            <label style="display:flex;align-items:center;gap:3px">
+                <input type="checkbox" ${tr.color?'checked':''}
+                    onchange="tlTrBlockProp(${lightId},${sel},'color',this.checked)"> Color
+            </label>
+            <label style="display:flex;align-items:center;gap:3px">
+                <input type="checkbox" ${tr.brightness?'checked':''}
+                    onchange="tlTrBlockProp(${lightId},${sel},'brightness',this.checked)"> Bri
+            </label>
+            ${(tr.color||tr.brightness) ? `<label>Dur(s) <input type="number" min="0.1" max="${maxHalf}" step="0.1"
+                value="${(tr.duration||0.5).toFixed(1)}" style="width:55px"
+                onchange="tlTrBlockProp(${lightId},${sel},'duration',Math.min(+this.value,${maxHalf}))"></label>` : ''}
         </div>` : ''}`;
 }
 
@@ -1347,10 +1402,14 @@ function tlBlockProp(lightId, idx, key, val) {
     }
 }
 
-function tlTrProp(lightId, trIdx, key, val) {
+function tlTrBlockProp(lightId, idx, key, val) {
     _tlInit(lightId);
-    if (!_tlTrUI[lightId][trIdx]) _tlTrUI[lightId][trIdx] = { mode: 'cut', duration: 1.0 };
-    _tlTrUI[lightId][trIdx][key] = val;
+    const block = _tlBlocks[lightId]?.[idx];
+    if (!block) return;
+    if (!block.transition) block.transition = { duration: 0.5, color: false, brightness: false };
+    block.transition[key] = val;
+    if (!block.transition.color && !block.transition.brightness) block.transition.duration = 0;
+    else if (block.transition.duration === 0) block.transition.duration = 0.5;
     tlRenderCanvas(lightId);
     _tlAutoSave(lightId);
 }
@@ -1362,18 +1421,14 @@ function tlSelectBlock(lightId, idx) {
 
 function tlAddBlock(lightId) {
     _tlInit(lightId);
-    const blocks = _tlBlocks[lightId];
-    const last = blocks[blocks.length - 1];
-    let newStart = 0;
-    if (last) {
-        newStart = (last.start ?? 0) + last.duration;
-        const lastTr = _tlTrUI[lightId][blocks.length - 1];
-        if (lastTr && lastTr.mode !== 'cut') newStart += lastTr.duration;
-    }
-    blocks.push({ color: last?.color ?? '#0088ff', brightness: last?.brightness ?? 100, duration: 2.0, start: newStart });
-    if (blocks.length > 1) {
-        _tlTrUI[lightId].push({ mode: 'cut', duration: 1.0 });
-    }
+    const blocks   = _tlBlocks[lightId];
+    const last     = blocks[blocks.length - 1];
+    const newStart = last ? (last.start ?? 0) + last.duration : 0;
+    blocks.push({
+        color: last?.color ?? '#0088ff', brightness: last?.brightness ?? 100,
+        duration: 2.0, start: newStart,
+        fadeIn: 0, transition: { duration: 0, color: false, brightness: false },
+    });
     _tlSelected[lightId] = blocks.length - 1;
     tlRenderCanvas(lightId);
     _tlAutoSave(lightId);
@@ -1381,13 +1436,7 @@ function tlAddBlock(lightId) {
 
 function tlDeleteBlock(lightId, idx) {
     _tlInit(lightId);
-    const blocks = _tlBlocks[lightId];
-    blocks.splice(idx, 1);
-    // Remove adjacent transition
-    if (_tlTrUI[lightId].length > 0) {
-        const trIdx = idx > 0 ? idx - 1 : 0;
-        if (_tlTrUI[lightId].length >= blocks.length) _tlTrUI[lightId].splice(trIdx, 1);
-    }
+    _tlBlocks[lightId].splice(idx, 1);
     _tlSelected[lightId] = null;
     tlRenderCanvas(lightId);
     _tlAutoSave(lightId);
@@ -1800,6 +1849,12 @@ function mtLightBlockProp(lightId, blockIdx, key, val) {
     }
 }
 
+function mtLightBlockTrProp(lightId, blockIdx, key, val) {
+    // Simple top-level block prop (fadeIn) — routes through mtLightBlockProp
+    mtLightBlockProp(lightId, blockIdx, key, val);
+    mtRenderEditor(); // re-render editor to show/hide duration input
+}
+
 function mtLightDeleteBlock(lightId, blockIdx) {
     _mt.selected = null;
     tlDeleteBlock(lightId, blockIdx);
@@ -1816,15 +1871,13 @@ function mtRenderEditor() {
         const { lightId, blockIdx } = sel;
         const b = _tlBlocks[lightId]?.[blockIdx];
         if (!b) { editor.innerHTML = ''; return; }
-        const blocks = _tlBlocks[lightId] || [];
+        const blocks    = _tlBlocks[lightId] || [];
         const prevBlock = blockIdx > 0 ? blocks[blockIdx - 1] : null;
-        const isAdjacentToPrev = prevBlock &&
-            Math.abs(((prevBlock.start ?? 0) + prevBlock.duration) - (b.start ?? 0)) < 0.12;
-        const tr = isAdjacentToPrev ? (_tlTrUI[lightId][blockIdx - 1] ?? { mode: 'cut', duration: 1.0 }) : null;
-        const trModeOpts = TL_TRANSITION_MODES.map(m =>
-            `<option value="${m}"${tr?.mode === m ? ' selected' : ''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`
-        ).join('');
-        const halfDur = (b.duration / 2).toFixed(1);
+        const nextBlock = blockIdx < blocks.length - 1 ? blocks[blockIdx + 1] : null;
+        const hasLeftGap = !prevBlock ||
+            ((b.start ?? 0) - ((prevBlock.start ?? 0) + prevBlock.duration)) > 0.12;
+        const tr      = b.transition || { duration: 0, color: false, brightness: false };
+        const maxHalf = (b.duration / 2).toFixed(1);
         editor.innerHTML = `
             <div class="tl-edit-row">
                 <label>Color <input type="color" value="${b.color}" onchange="mtLightBlockProp(${lightId},${blockIdx},'color',this.value)"></label>
@@ -1836,18 +1889,29 @@ function mtRenderEditor() {
                     onchange="mtLightBlockProp(${lightId},${blockIdx},'duration',+this.value)"></label>
                 <button class="btn btn-sm btn-secondary" onclick="mtCopyBlock()">Copy</button>
                 <button class="btn btn-sm btn-danger" onclick="mtLightDeleteBlock(${lightId},${blockIdx})">Delete</button>
-            </div>
+            </div>${hasLeftGap ? `
             <div class="tl-edit-row">
-                <label>Fade In <input type="number" min="0" max="${halfDur}" step="0.1" value="${(b.fadeIn||0).toFixed(1)}" style="width:50px"
-                    onchange="mtLightBlockProp(${lightId},${blockIdx},'fadeIn',Math.min(+this.value,${halfDur}))">s</label>
-                <label>Fade Out <input type="number" min="0" max="${halfDur}" step="0.1" value="${(b.fadeOut||0).toFixed(1)}" style="width:50px"
-                    onchange="mtLightBlockProp(${lightId},${blockIdx},'fadeOut',Math.min(+this.value,${halfDur}))">s</label>
-            </div>${tr !== null ? `
+                <label style="display:flex;align-items:center;gap:4px">
+                    <input type="checkbox" ${(b.fadeIn||0)>0?'checked':''}
+                        onchange="mtLightBlockTrProp(${lightId},${blockIdx},'fadeIn',this.checked?0.5:0)"> Fade in
+                </label>
+                ${(b.fadeIn||0)>0 ? `<label>Dur(s) <input type="number" min="0.1" max="${maxHalf}" step="0.1"
+                    value="${(b.fadeIn).toFixed(1)}" style="width:55px"
+                    onchange="mtLightBlockTrProp(${lightId},${blockIdx},'fadeIn',Math.min(+this.value,${maxHalf}))"></label>` : ''}
+            </div>` : ''}${nextBlock ? `
             <div class="tl-edit-row tl-tr-row">
-                <span class="tl-tr-label">Transition in:</span>
-                <select onchange="tlTrProp(${lightId},${blockIdx-1},'mode',this.value)">${trModeOpts}</select>
-                <label>Dur(s) <input type="number" min="0.1" step="0.1" value="${tr.duration}" style="width:55px"
-                    onchange="tlTrProp(${lightId},${blockIdx-1},'duration',+this.value)"></label>
+                <span class="tl-tr-label">&#8594; Transition:</span>
+                <label style="display:flex;align-items:center;gap:3px">
+                    <input type="checkbox" ${tr.color?'checked':''}
+                        onchange="tlTrBlockProp(${lightId},${blockIdx},'color',this.checked)"> Color
+                </label>
+                <label style="display:flex;align-items:center;gap:3px">
+                    <input type="checkbox" ${tr.brightness?'checked':''}
+                        onchange="tlTrBlockProp(${lightId},${blockIdx},'brightness',this.checked)"> Bri
+                </label>
+                ${(tr.color||tr.brightness) ? `<label>Dur(s) <input type="number" min="0.1" max="${maxHalf}" step="0.1"
+                    value="${(tr.duration||0.5).toFixed(1)}" style="width:55px"
+                    onchange="tlTrBlockProp(${lightId},${blockIdx},'duration',Math.min(+this.value,${maxHalf}))"></label>` : ''}
             </div>` : ''}`;
         return;
     }

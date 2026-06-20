@@ -298,27 +298,47 @@ def _fire_camera_action(cam_id: int, action: str):
 def _fire_master_light(ev: dict):
     ls, block, next_block = ev["ls"], ev["block"], ev.get("next_block")
     r, g, b = _hex_to_rgb(block["color"])
-    scale   = block["brightness"] / 100.0
-    _send_color(ls, int(r*scale), int(g*scale), int(b*scale))
+    scale    = block["brightness"] / 100.0
+    fade_in  = float(block.get("fadeIn", 0))
+
+    if fade_in > 0:
+        steps  = max(1, int(fade_in * 20))
+        step_t = fade_in / steps
+        for step in range(steps + 1):
+            if _master_tl["_stop"]: return
+            f = (1 - math.cos((step / steps) * math.pi)) / 2
+            _send_color(ls, int(r*scale*f), int(g*scale*f), int(b*scale*f))
+            if step < steps: time.sleep(step_t)
+    else:
+        _send_color(ls, int(r*scale), int(g*scale), int(b*scale))
+
     if next_block:
-        tr_ui  = block.get("transition", {"mode": "cut", "duration": 1.0})
-        tr     = _tl_tr_to_server(tr_ui.get("mode", "cut"), float(tr_ui.get("duration", 1.0)))
-        tr_dur = tr["duration"] if tr["color_mode"] == "gradual" or tr["brightness_mode"] == "gradual" else 0.0
-        wait   = max(0.0, block["duration"] - tr_dur)
+        # Per-block right-side transition: {duration, color, brightness}
+        block_tr  = block.get("transition", {})
+        do_color  = block_tr.get("color", False)
+        do_bri    = block_tr.get("brightness", False)
+        tr_dur    = float(block_tr.get("duration", 0)) if (do_color or do_bri) else 0.0
+
+        wait = max(0.0, block["duration"] - fade_in - tr_dur)
         if wait > 0: time.sleep(wait)
-        if not _master_tl["_stop"]:
+
+        if tr_dur > 0 and not _master_tl["_stop"]:
+            tr = {
+                "color_mode":      "gradual" if do_color else "instant_start",
+                "brightness_mode": "gradual" if do_bri   else "instant_start",
+                "duration":        tr_dur,
+            }
             _perform_transition(ls,
                 {"color": block["color"],      "brightness": block["brightness"]},
                 {"color": next_block["color"], "brightness": next_block["brightness"]},
                 tr, _master_tl)
-        # If there's a gap before the next block starts, turn off the light for that gap.
-        # The next block's _fire_master_light will re-enable it at the right time.
+
         gap = float(next_block["start"]) - (float(block["start"]) + float(block["duration"]))
         if gap > 0.05 and not _master_tl["_stop"]:
             _turn_off_light(ls)
     else:
-        # Last block — turn off after its duration elapses
-        time.sleep(float(block["duration"]))
+        remaining = max(0.0, float(block["duration"]) - fade_in)
+        if remaining > 0: time.sleep(remaining)
         if not _master_tl["_stop"]:
             _turn_off_light(ls)
 
@@ -482,6 +502,15 @@ def tracker_limits():
     )
     return jsonify({"success": True})
 
+@app.route('/api/tracker/params', methods=['POST'])
+def tracker_params():
+    data = request.json or {}
+    for key in ('ramp_pan_rate', 'ramp_tilt_rate', 'poll_interval',
+                'pan_gain', 'tilt_gain', 'dead_zone'):
+        if key in data:
+            setattr(tracker, key, float(data[key]))
+    return jsonify({"success": True})
+
 # === Web Routes ===
 
 @app.route('/')
@@ -617,6 +646,28 @@ def cam_video_stop(cam_id):
     if not c:
         return jsonify({"error": f"Camera {cam_id} not found"}), 404
     result = c["cam"].stop_video()
+    if result:
+        save_to_pc = (request.json or {}).get('save_to_pc', True)
+        if save_to_pc:
+            def _auto_download():
+                time.sleep(2.0)  # wait for file to be finalized on camera SD card
+                latest = c["media"].get_latest_media()
+                if not latest:
+                    socketio.emit('download_complete', {'success': False, 'cam_id': cam_id,
+                                                        'error': 'No file found after recording'})
+                    return
+                filename = latest['filename']
+                socketio.emit('download_progress', {'progress': 0, 'filename': filename, 'cam_id': cam_id})
+                def _progress(pct):
+                    socketio.emit('download_progress', {'progress': pct, 'filename': filename, 'cam_id': cam_id})
+                local_path = c["media"].download_file(latest['directory'], filename, _progress)
+                socketio.emit('download_complete', {
+                    'success': bool(local_path),
+                    'cam_id': cam_id,
+                    'filename': filename,
+                    'path': local_path or '',
+                })
+            threading.Thread(target=_auto_download, daemon=True).start()
     return jsonify({"success": result, "cam_id": cam_id})
 
 @app.route('/api/<int:cam_id>/stream/start', methods=['POST'])
@@ -744,6 +795,34 @@ def cam_media_list(cam_id):
         return jsonify({"error": f"Camera {cam_id} not found"}), 404
     files = c["media"].get_media_list()
     return jsonify({"files": files, "count": len(files), "cam_id": cam_id})
+
+@app.route('/api/<int:cam_id>/media/download', methods=['POST'])
+def cam_media_download(cam_id):
+    c = get_cam(cam_id)
+    if not c:
+        return jsonify({"error": f"Camera {cam_id} not found"}), 404
+    directory = request.json.get('directory')
+    filename = request.json.get('filename')
+    if not directory or not filename:
+        return jsonify({"error": "Missing directory or filename"}), 400
+    def progress_update(progress):
+        socketio.emit('download_progress', {'progress': progress, 'filename': filename, 'cam_id': cam_id})
+    local_path = c["media"].download_file(directory, filename, progress_update)
+    if local_path:
+        return jsonify({"success": True, "path": local_path, "cam_id": cam_id})
+    return jsonify({"success": False, "error": "Download failed"}), 500
+
+@app.route('/api/<int:cam_id>/media/delete', methods=['POST'])
+def cam_media_delete(cam_id):
+    c = get_cam(cam_id)
+    if not c:
+        return jsonify({"error": f"Camera {cam_id} not found"}), 404
+    directory = request.json.get('directory')
+    filename = request.json.get('filename')
+    if not directory or not filename:
+        return jsonify({"error": "Missing directory or filename"}), 400
+    result = c["media"].delete_file(directory, filename)
+    return jsonify({"success": result, "cam_id": cam_id})
 
 @app.route('/api/<int:cam_id>/settings/resolution', methods=['POST'])
 def cam_set_resolution(cam_id):
@@ -1109,18 +1188,28 @@ def light_timeline_play(light_id):
                 gap         = (float(next_block['start']) - (float(block['start']) + float(block['duration']))) if next_block else float('inf')
                 is_adjacent = next_block is not None and gap < 0.12
 
-                # Hold color until block ends (back off by fade-out duration if there's a gap)
+                # Per-block right-side transition: {duration, color, brightness}
+                block_tr = block.get('transition', {})
+                do_color  = block_tr.get('color', False)
+                do_bri    = block_tr.get('brightness', False)
+                tr_dur    = float(block_tr.get('duration', 0)) if is_adjacent and (do_color or do_bri) else 0.0
+
+                # Hold color until transition start (tr_dur carved from end of block)
                 block_end_t = target_t + float(block['duration'])
-                hold_end    = block_end_t - (fade_out if fade_out > 0 and not is_adjacent else 0)
+                hold_end    = block_end_t - tr_dur - (fade_out if fade_out > 0 and not is_adjacent else 0)
                 while time.time() < hold_end:
                     if tl['_stop']: break
                     time.sleep(0.02)
                 if tl['_stop']: break
 
                 if is_adjacent:
-                    # Crossfade into next block
-                    tr = transitions[i] if i < len(transitions) else {'color_mode': 'instant_start', 'brightness_mode': 'instant_start', 'duration': 0}
-                    _perform_transition(ls, block, next_block, tr, tl)
+                    if tr_dur > 0:
+                        tr = {
+                            'color_mode':      'gradual' if do_color else 'instant_start',
+                            'brightness_mode': 'gradual' if do_bri   else 'instant_start',
+                            'duration':        tr_dur,
+                        }
+                        _perform_transition(ls, block, next_block, tr, tl)
                 elif fade_out > 0:
                     # Cosine ramp to black
                     steps  = max(1, int(fade_out * 20))

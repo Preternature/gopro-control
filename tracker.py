@@ -103,15 +103,15 @@ class PersonTracker:
         self.tilt_max = 2350.0
 
         # Tuning
-        self.dead_zone = 0.15
-        self.poll_interval = 2.0       # seconds between target re-evaluations
+        self.dead_zone = 0.18
+        self.poll_interval = 2.5       # seconds between target re-evaluations
         self.pan_max_rate = 4.0        # degrees / second max target correction
         self.tilt_max_rate = 80.0      # μs / second max target correction
-        self.pan_gain = 0.5
-        self.tilt_gain = 0.5
+        self.pan_gain = 0.4
+        self.tilt_gain = 0.4
         # Ramp: how fast the servo physically moves toward the target
-        self.ramp_pan_rate = 6.0       # degrees / second servo ramp speed
-        self.ramp_tilt_rate = 150.0    # μs / second servo ramp speed
+        self.ramp_pan_rate = 2.5       # degrees / second servo ramp speed
+        self.ramp_tilt_rate = 60.0     # μs / second servo ramp speed
         self.pan_sign = -1
         self.tilt_sign = 1
         # Target: box bottom sits this far above frame center (negative = above).
