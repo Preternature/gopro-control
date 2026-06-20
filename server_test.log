@@ -23,3 +23,211 @@ Then open http://localhost:5000 in your browser
 ============================================================
  * Serving Flask app 'main'
  * Debug mode: on
+[tracker] YuNet face detector loaded
+============================================================
+GoPro Controller — Dual Camera Support
+============================================================
+
+To use both cameras simultaneously, connect BOTH via USB-C.
+Each USB connection gets its own IP in the 172.2x.1xx.51 range.
+
+Quick-check what cameras are visible:
+  GET http://localhost:5000/api/scan
+
+Control individual cameras:
+  GET  http://localhost:5000/api/1/status
+  GET  http://localhost:5000/api/2/status
+  POST http://localhost:5000/api/1/stream/start
+  POST http://localhost:5000/api/2/stream/start
+
+HLS streams (after starting):
+  /static/hls/cam1/stream.m3u8
+  /static/hls/cam2/stream.m3u8
+
+Then open http://localhost:5000 in your browser
+============================================================
+Client connected
+[cam2] USB 172.23.153.51 is 'GP25102353', not 'Thirteen' — skipping
+[cam2] GoPro not found
+[cam1] Connected via USB at 172.23.153.51 (confirmed GP25102353)
+[cam1] Connected via USB at 172.23.153.51 (confirmed GP25102353)
+[cam1] Wired USB control enabled
+[cam1] Wired USB control enabled
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam1] Starting GoPro preview stream...
+[cam1] Starting stream on UDP port 8554
+[cam1] Stream start result: {}
+[cam1] Starting FFmpeg MJPEG pipe
+[cam1] Fetching presets to find group PRESET_GROUP_ID_VIDEO...
+[cam1] Got 3 preset groups: ids=['PRESET_GROUP_ID_VIDEO', 'PRESET_GROUP_ID_PHOTO', 'PRESET_GROUP_ID_TIMELAPSE']
+[cam1]   group PRESET_GROUP_ID_VIDEO -> first preset id 6
+[cam1]   group PRESET_GROUP_ID_PHOTO -> first preset id 65536
+[cam1]   group PRESET_GROUP_ID_TIMELAPSE -> first preset id 131072
+[cam1] Loading preset id=6 (group PRESET_GROUP_ID_VIDEO)...
+[cam1] presets/load OK: {}
+[cam1] Loading preset id=65536 (group PRESET_GROUP_ID_PHOTO)...
+[cam1] presets/load OK: {}
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+Client connected
+[cam2] GoPro not found
+[arduino] Connected on COM6
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam1] Starting GoPro preview stream...
+[cam1] Starting stream on UDP port 8554
+[cam1] Stream start result: {}
+[cam1] Starting FFmpeg MJPEG pipe
+[cam2] GoPro not found
+[cam1] Loading preset id=6 (group PRESET_GROUP_ID_VIDEO)...
+[cam1] presets/load OK: {}
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
+[cam2] GoPro not found
