@@ -236,6 +236,7 @@ class GoProConnection:
                 self.base_url = f"http://{self.gopro_ip}:{self.GOPRO_PORT}"
                 self.connected = True
                 print(f"[{self.name}] Connected at {self.gopro_ip} ({self.connection_type})")
+                self._enable_wired_usb_control()
                 return True
             else:
                 print(f"[{self.name}] Not reachable at configured IP {self._configured_ip}")
@@ -257,6 +258,7 @@ class GoProConnection:
                     self.base_url = f"http://{self.WIFI_IP}:{self.GOPRO_PORT}"
                     self.connected = True
                     print(f"[{self.name}] Connected via WiFi at {self.WIFI_IP} (confirmed {self.GOPRO_SSID})")
+                    self._enable_wired_usb_control()
                     return True
             except Exception:
                 pass  # fall through to USB scan
@@ -279,11 +281,20 @@ class GoProConnection:
             self._session = requests.Session()
             GoProConnection._usb_ip_registry[self.name] = usb_ip
             print(f"[{self.name}] Connected via USB at {usb_ip} (confirmed {self.GOPRO_SSID})")
+            self._enable_wired_usb_control()
             return True
 
         print(f"[{self.name}] GoPro not found")
         self.connected = False
         return False
+
+    def _enable_wired_usb_control(self) -> None:
+        """Enable wired USB control mode — required before shutter commands work over USB."""
+        result = self.send_command("/gopro/camera/control/wired_usb", {"p": 1})
+        if result is not None:
+            print(f"[{self.name}] Wired USB control enabled")
+        else:
+            print(f"[{self.name}] Warning: wired_usb enable failed (shutter commands may not work)")
 
     def check_connection(self) -> bool:
         """Check if this camera is currently reachable"""

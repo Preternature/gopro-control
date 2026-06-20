@@ -1,0 +1,25 @@
+[tracker] YuNet face detector loaded
+============================================================
+GoPro Controller — Dual Camera Support
+============================================================
+
+To use both cameras simultaneously, connect BOTH via USB-C.
+Each USB connection gets its own IP in the 172.2x.1xx.51 range.
+
+Quick-check what cameras are visible:
+  GET http://localhost:5000/api/scan
+
+Control individual cameras:
+  GET  http://localhost:5000/api/1/status
+  GET  http://localhost:5000/api/2/status
+  POST http://localhost:5000/api/1/stream/start
+  POST http://localhost:5000/api/2/stream/start
+
+HLS streams (after starting):
+  /static/hls/cam1/stream.m3u8
+  /static/hls/cam2/stream.m3u8
+
+Then open http://localhost:5000 in your browser
+============================================================
+ * Serving Flask app 'main'
+ * Debug mode: on
