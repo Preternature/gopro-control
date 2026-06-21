@@ -1086,19 +1086,55 @@ def light_timeline_play(light_id):
                     if tl['_stop']: break
                     time.sleep(0.02)
                 if tl['_stop']: break
-                # Apply block color atomically
+
                 r, g, b = _hex_to_rgb(block['color'])
-                scale = block['brightness'] / 100.0
-                _send_color(ls, int(r*scale), int(g*scale), int(b*scale))
-                # Wait until block ends (relative to play_start)
-                block_end = target_t + float(block['duration'])
-                while time.time() < block_end:
+                scale    = block['brightness'] / 100.0
+                fade_in  = float(block.get('fadeIn',  0))
+                fade_out = float(block.get('fadeOut', 0))
+
+                # Apply block color (with optional cosine fade-in from black)
+                if fade_in > 0:
+                    steps = max(1, int(fade_in * 20))
+                    step_t = fade_in / steps
+                    for step in range(steps + 1):
+                        if tl['_stop']: break
+                        f = (1 - math.cos((step / steps) * math.pi)) / 2
+                        _send_color(ls, int(r*scale*f), int(g*scale*f), int(b*scale*f))
+                        if step < steps: time.sleep(step_t)
+                else:
+                    _send_color(ls, int(r*scale), int(g*scale), int(b*scale))
+
+                # Check adjacency with next block
+                next_block  = blocks[i + 1] if i < len(blocks) - 1 else None
+                gap         = (float(next_block['start']) - (float(block['start']) + float(block['duration']))) if next_block else float('inf')
+                is_adjacent = next_block is not None and gap < 0.12
+
+                # Hold color until block ends (back off by fade-out duration if there's a gap)
+                block_end_t = target_t + float(block['duration'])
+                hold_end    = block_end_t - (fade_out if fade_out > 0 and not is_adjacent else 0)
+                while time.time() < hold_end:
                     if tl['_stop']: break
                     time.sleep(0.02)
-                # Transition to next block if adjacent
-                if not tl['_stop'] and i < len(blocks) - 1:
+                if tl['_stop']: break
+
+                if is_adjacent:
+                    # Crossfade into next block
                     tr = transitions[i] if i < len(transitions) else {'color_mode': 'instant_start', 'brightness_mode': 'instant_start', 'duration': 0}
-                    _perform_transition(ls, block, blocks[i + 1], tr, tl)
+                    _perform_transition(ls, block, next_block, tr, tl)
+                elif fade_out > 0:
+                    # Cosine ramp to black
+                    steps  = max(1, int(fade_out * 20))
+                    step_t = fade_out / steps
+                    for step in range(steps + 1):
+                        if tl['_stop']: break
+                        f = 1.0 - (1 - math.cos((step / steps) * math.pi)) / 2
+                        _send_color(ls, int(r*scale*f), int(g*scale*f), int(b*scale*f))
+                        if step < steps: time.sleep(step_t)
+                    _turn_off_light(ls)
+                elif next_block:
+                    # Gap to next block — turn off while waiting
+                    _turn_off_light(ls)
+
             if tl['_stop'] or not tl['loop']:
                 break
         if not tl['_stop']:
