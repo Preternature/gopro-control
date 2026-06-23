@@ -87,15 +87,59 @@ class GoProCamera:
             self.is_recording = False
         return result is not None
 
+    # Seconds to let the GoPro settle after a photo before restarting the preview.
+    # The camera can't stream for ~8s after a capture; a clean start before then
+    # never locks. After settling, a clean start comes up stable in ~2s.
+    _PHOTO_SETTLE_SEC = 8.0
+
     def take_photo(self) -> bool:
-        """Take a single photo"""
-        if not self.set_mode_photo():
-            return False
-        time.sleep(0.5)
-        return self.shutter_on()
+        """Take a single photo. If preview was live, restore it in the background.
+
+        A photo requires switching to the photo preset, which stops the video stream;
+        the GoPro then can't stream again for ~8s. So we fully stop the stream (which
+        also makes the preset switch reliable — no HTTP 500), take the shot, and kick
+        off a background task that waits for the camera to settle, then does a clean
+        stream restart. take_photo itself returns fast; the client polls /stream/ready
+        to reconnect the preview once frames are genuinely flowing."""
+        # Re-assert wired USB control — the camera drops it after sleeping.
+        self.conn.enable_wired_usb_control()
+        was_streaming = self.conn.stream_active
+        # Fully stop streaming (FFmpeg + GoPro feed). Leaving FFmpeg running on a dead
+        # UDP socket through the photo prevents it from ever re-locking cleanly.
+        if was_streaming:
+            self.conn.stop_mjpeg_stream()
+            time.sleep(0.3)
+        ok = self.set_mode_photo()
+        if ok:
+            time.sleep(0.5)
+            result = self.shutter_on()
+        else:
+            result = False
+        self.is_recording = False  # a photo is not a recording
+        self.set_mode_video()
+        if was_streaming:
+            threading.Thread(target=self._restore_preview_bg, daemon=True).start()
+        return result
+
+    def _restore_preview_bg(self) -> None:
+        """Background: wait for the camera to settle after a photo, then bring the
+        preview back with a clean start, retrying until frames actually flow."""
+        time.sleep(self._PHOTO_SETTLE_SEC)
+        for _ in range(3):
+            self.conn.start_mjpeg_stream()
+            deadline = time.time() + 12
+            while time.time() < deadline:
+                if self.conn.stream_ready():
+                    print(f"[{self.conn.name}] preview restored after photo")
+                    return
+                time.sleep(0.5)
+            print(f"[{self.conn.name}] preview not back yet — retrying clean restart")
+        print(f"[{self.conn.name}] preview restore gave up (camera may need a manual Start Preview)")
 
     def start_video(self) -> bool:
         """Start video recording"""
+        # Re-assert wired USB control — the camera drops it after sleeping.
+        self.conn.enable_wired_usb_control()
         if not self.set_mode_video():
             return False
         time.sleep(0.5)

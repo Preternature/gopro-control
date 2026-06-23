@@ -15,6 +15,7 @@ from flask_socketio import SocketIO
 from gopro import GoProConnection, GoProCamera, GoProMedia
 from arduino import ArduinoController
 from tracker import PersonTracker
+from audio import AudioRecorder
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'gopro-controller-secret'
@@ -64,6 +65,10 @@ cameras = {
 def get_cam(cam_id: int):
     """Return camera dict or None"""
     return cameras.get(cam_id)
+
+# Audio recorder — captures MiniFuse inserts to per-insert WAVs, shared across cams.
+# Reference-counted: first camera to record opens the capture, last to stop writes files.
+audio_recorder = AudioRecorder(download_dir="downloads")
 
 # Arduino controller (Camera Rail + Gimbal)
 arduino = ArduinoController()
@@ -599,8 +604,56 @@ def cam_take_photo(cam_id):
     c = get_cam(cam_id)
     if not c:
         return jsonify({"error": f"Camera {cam_id} not found"}), 404
+    # Note the newest media BEFORE the shot so we can wait for the NEW file to appear.
+    try:
+        _prev = c["media"].get_latest_media()
+        prev_name = _prev['filename'] if _prev else None
+    except Exception:
+        prev_name = None
+
     result = c["cam"].take_photo()
+    if result:
+        save_to_pc = (request.get_json(silent=True) or {}).get('save_to_pc', True)
+        if save_to_pc:
+            threading.Thread(target=_auto_download_latest,
+                             args=(cam_id, c, prev_name, 'photo'),
+                             daemon=True).start()
     return jsonify({"success": result, "cam_id": cam_id})
+
+
+def _auto_download_latest(cam_id, c, prev_name, kind):
+    """Wait for the newest media (different from prev_name) to be indexed on the
+    camera, then download it to the PC. The camera is briefly busy after a photo
+    (restarting the preview stream), so the media list can lag — retry a few times."""
+    try:
+        latest = None
+        for _ in range(10):
+            time.sleep(0.75)
+            latest = c["media"].get_latest_media()
+            if latest and latest['filename'] != prev_name:
+                break  # the new file has appeared
+        if not latest:
+            print(f"[{kind}] cam{cam_id}: no media found to download")
+            socketio.emit('download_complete', {'success': False, 'cam_id': cam_id,
+                                                'error': 'No file found after capture'})
+            return
+        filename = latest['filename']
+        if filename == prev_name:
+            print(f"[{kind}] cam{cam_id}: new file never appeared, grabbing latest ({filename})")
+        print(f"[{kind}] cam{cam_id}: downloading {filename}")
+        socketio.emit('download_progress', {'progress': 0, 'filename': filename, 'cam_id': cam_id})
+        local_path = c["media"].download_file(
+            latest['directory'], filename,
+            lambda pct: socketio.emit('download_progress',
+                                      {'progress': pct, 'filename': filename, 'cam_id': cam_id}))
+        print(f"[{kind}] cam{cam_id}: download {'OK -> ' + local_path if local_path else 'FAILED'}")
+        socketio.emit('download_complete', {
+            'success': bool(local_path), 'cam_id': cam_id,
+            'filename': filename, 'path': local_path or '',
+        })
+    except Exception as e:
+        print(f"[{kind}] cam{cam_id}: auto-download error: {e}")
+        socketio.emit('download_complete', {'success': False, 'cam_id': cam_id, 'error': str(e)})
 
 @app.route('/api/<int:cam_id>/photo/timer', methods=['POST'])
 def cam_photo_timer(cam_id):
@@ -638,7 +691,19 @@ def cam_video_start(cam_id):
     if not c:
         return jsonify({"error": f"Camera {cam_id} not found"}), 404
     result = c["cam"].start_video()
-    return jsonify({"success": result, "cam_id": cam_id})
+    audio = None
+    if result:
+        # Start (or join) the shared instrument-audio capture.
+        try:
+            audio = audio_recorder.start_session(cam_id)
+            socketio.emit('audio_status', {'cam_id': cam_id, 'event': 'start', **audio})
+            if audio.get('warning'):
+                print(f"[audio] {audio['warning']}")
+            elif audio.get('error'):
+                print(f"[audio] start error: {audio['error']}")
+        except Exception as e:
+            print(f"[audio] start_session crashed: {e}")
+    return jsonify({"success": result, "cam_id": cam_id, "audio": audio})
 
 @app.route('/api/<int:cam_id>/video/stop', methods=['POST'])
 def cam_video_stop(cam_id):
@@ -647,6 +712,20 @@ def cam_video_stop(cam_id):
         return jsonify({"error": f"Camera {cam_id} not found"}), 404
     result = c["cam"].stop_video()
     if result:
+        # Leave the shared audio capture; last camera out writes the WAV files.
+        try:
+            audio = audio_recorder.stop_session(cam_id)
+            if audio.get('stopped') and audio.get('files'):
+                names = [os.path.basename(f) for f in audio['files']]
+                print(f"[audio] saved {names} ({audio.get('duration')}s @ {audio.get('rate')}Hz)")
+                socketio.emit('audio_saved', {'cam_id': cam_id, 'files': names,
+                                              'rate': audio.get('rate'),
+                                              'duration': audio.get('duration')})
+            elif audio.get('error') and audio.get('stopped'):
+                socketio.emit('audio_saved', {'cam_id': cam_id, 'files': [],
+                                              'error': audio['error']})
+        except Exception as e:
+            print(f"[audio] stop_session crashed: {e}")
         save_to_pc = (request.json or {}).get('save_to_pc', True)
         if save_to_pc:
             def _auto_download():
@@ -678,6 +757,13 @@ def cam_stream_start(cam_id):
     result = c["conn"].start_mjpeg_stream()
     return jsonify({"success": result, "cam_id": cam_id,
                     "mjpeg_url": f"/api/{cam_id}/mjpeg"})
+
+@app.route('/api/<int:cam_id>/stream/ready')
+def cam_stream_ready(cam_id):
+    c = get_cam(cam_id)
+    if not c:
+        return jsonify({"ready": False, "cam_id": cam_id})
+    return jsonify({"ready": c["conn"].stream_ready(), "cam_id": cam_id})
 
 @app.route('/api/<int:cam_id>/mjpeg')
 def cam_mjpeg(cam_id):
@@ -981,6 +1067,36 @@ def serve_download(filename):
 def list_downloads():
     files = media1.get_local_files()
     return jsonify({"files": files})
+
+# ── Audio (instrument WAV capture) ───────────────────────────────────────────
+
+@app.route('/api/audio/status')
+def audio_status():
+    return jsonify(audio_recorder.status())
+
+@app.route('/api/audio/level')
+def audio_level():
+    """Live instrument input level — drives the 'audible' dot between previews."""
+    return jsonify(audio_recorder.level())
+
+@app.route('/api/audio/devices')
+def audio_devices():
+    """List input devices, flagging the one the recorder will use."""
+    import sounddevice as sd
+    target = audio_recorder._find_device()
+    apis = {i: a['name'] for i, a in enumerate(sd.query_hostapis())}
+    devs = []
+    for i, d in enumerate(sd.query_devices()):
+        if d['max_input_channels'] > 0:
+            devs.append({
+                "index": i,
+                "name": d['name'],
+                "hostapi": apis.get(d['hostapi'], '?'),
+                "channels": d['max_input_channels'],
+                "default_rate": int(d['default_samplerate']),
+                "selected": (i == target),
+            })
+    return jsonify({"devices": devs, "selected_index": target})
 
 @app.route('/api/settings/resolution', methods=['POST'])
 def set_resolution():

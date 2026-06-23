@@ -95,6 +95,37 @@ header h1 { font-size: 1.6rem; }
     grid-template-columns: 1fr 1fr;
     gap: 18px;
     margin-bottom: 18px;
+    position: relative;
+}
+
+/* ── Instrument-feed "audible" dot (between the two previews) ── */
+.audio-dot {
+    position: absolute;
+    left: 50%;
+    top: 220px;                 /* aligns with the preview area near the top of the panels */
+    transform: translate(-50%, -50%);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #141414;        /* dark when monitoring but below threshold (silent) */
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 0 0 rgba(46, 213, 115, 0);
+    z-index: 6;
+    transition: background 0.1s linear, box-shadow 0.1s linear, transform 0.08s linear;
+}
+.audio-dot.present {
+    background: #2ed573;        /* bright green when the instrument is audible */
+    border-color: rgba(46, 213, 115, 0.9);
+    box-shadow: 0 0 14px 4px rgba(46, 213, 115, 0.85);
+}
+.audio-dot.offline {
+    background: #141414;        /* dark when no input device is available */
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: none;
+}
+@media (max-width: 900px) {
+    /* single-column layout — pin the dot to the gap between the stacked panels */
+    .audio-dot { top: auto; bottom: -9px; left: 50%; }
 }
 
 /* ── Camera Panel ── */

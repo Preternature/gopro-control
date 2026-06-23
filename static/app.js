@@ -46,6 +46,7 @@ function updateCamStatus(camId, connected, ip = null, connType = null) {
     const notConnected = el(`cam${camId}-not-connected`);
     const content = el(`cam${camId}-content`);
 
+    camState[camId].connected = connected;
     if (connected) {
         pill.classList.add('connected');
         pill.classList.remove('disconnected');
@@ -150,6 +151,14 @@ async function camAction(camId, action) {
 
     if (action === 'photo') {
         showNotification(result.success ? `Cam ${camId}: Photo captured!` : `Cam ${camId}: Photo failed`, result.success ? 'success' : 'error');
+        if (result.success) {
+            // Taking a photo switches the camera to photo mode and back, which
+            // restarts the preview stream server-side and breaks the browser's old
+            // MJPEG connection. FFmpeg can take several seconds to relock onto the
+            // GoPro feed, so poll until the server confirms frames are flowing, then
+            // reconnect the <img> once (deterministic — no broken-image flicker).
+            reconnectPreviewWhenReady(camId);
+        }
     }
 
     if (action === 'video-start' && result.success) {
@@ -240,6 +249,38 @@ async function bothCameras(action) {
 }
 
 // ─── HLS Preview ──────────────────────────────────────────────────────────────
+
+// Poll the server until the MJPEG stream is confirmed producing frames, then
+// reconnect the preview <img> (and PiP) once. Used to restore the preview after a
+// photo, where the camera switches modes and FFmpeg needs a few seconds to relock.
+async function reconnectPreviewWhenReady(camId, maxMs = 60000) {
+    const img = el(`cam${camId}-video`);
+    const pipImg = el(`pip-img-${camId}`);
+    const wantMain = img && img.style.display !== 'none';
+    const wantPip = pipImg && el(`pip-stream-${camId}`)?.style.display !== 'none';
+    if (!wantMain && !wantPip) return;  // preview wasn't live; nothing to restore
+
+    // The GoPro takes ~15-20s to resume its video feed after a photo (firmware
+    // limitation). Show a live countdown-ish status and reconnect the moment frames
+    // actually start flowing.
+    showNotification(`Cam ${camId}: restoring preview — the GoPro needs ~20s after a photo…`, 'info');
+    const start = Date.now();
+    while (Date.now() - start < maxMs) {
+        let ready = false;
+        try {
+            ready = (await fetch(`/api/${camId}/stream/ready`).then(r => r.json())).ready;
+        } catch (e) { /* server momentarily busy — keep trying */ }
+        if (ready) {
+            const url = `/api/${camId}/mjpeg?t=${Date.now()}`;
+            if (wantMain) img.src = url;
+            if (wantPip) pipImg.src = url;
+            showNotification(`Cam ${camId}: preview restored (${Math.round((Date.now()-start)/1000)}s)`, 'success');
+            return;
+        }
+        await new Promise(r => setTimeout(r, 700));
+    }
+    showNotification(`Cam ${camId}: preview still not back — click Start Preview`, 'warning');
+}
 
 async function startPreview(camId) {
     showNotification(`Cam ${camId}: Starting preview...`, 'info');
@@ -743,6 +784,25 @@ socket.on('download_complete', (data) => {
         showNotification(`Cam ${data.cam_id}: Saved "${data.filename}"`, 'success');
     } else {
         showNotification(`Cam ${data.cam_id}: Auto-save failed — ${data.error || 'unknown error'}`, 'error');
+    }
+});
+
+socket.on('audio_status', (data) => {
+    console.log('[LCA] socket audio_status', data);
+    if (data.event === 'start' && data.started) {
+        showNotification(`🎙 Audio recording @ ${data.rate} Hz`, 'success');
+        if (data.warning) showNotification(data.warning, 'warning');
+    } else if (data.event === 'start' && data.error) {
+        showNotification(`Audio: ${data.error}`, 'error');
+    }
+});
+
+socket.on('audio_saved', (data) => {
+    console.log('[LCA] socket audio_saved', data);
+    if (data.files && data.files.length) {
+        showNotification(`🎙 Audio saved: ${data.files.join(', ')} (${data.duration}s)`, 'success');
+    } else if (data.error) {
+        showNotification(`Audio: ${data.error}`, 'warning');
     }
 });
 
@@ -2292,7 +2352,37 @@ function mtAddLightTrack(lightId) {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
+// ─── Instrument-feed "audible" dot ──────────────────────────────────────────
+// Polls the live audio level and lights the green dot between the two previews
+// when the instrument feed is audible (before and during recording).
+let _audioDotTimer = null;
+function startAudioDot() {
+    const dot = document.getElementById('audio-dot');
+    if (!dot) return;
+    async function tick() {
+        try {
+            const r = await fetch('/api/audio/level').then(res => res.json());
+            if (!r.monitoring && !r.recording) {
+                dot.className = 'audio-dot offline';
+                dot.style.transform = 'translate(-50%, -50%)';
+                dot.title = 'Instrument feed: no input device';
+                return;
+            }
+            dot.classList.remove('offline');
+            dot.classList.toggle('present', !!r.present);
+            // Breathe with the signal for a live "VU" feel (0.05 ≈ a strong note).
+            const lvl = Math.max(0, Math.min(1, r.level / 0.05));
+            dot.style.transform = `translate(-50%, -50%) scale(${(1 + lvl * 0.5).toFixed(2)})`;
+            dot.title = `Instrument feed${r.recording ? ' — RECORDING' : ''}: ${r.dbfs} dBFS`;
+        } catch (e) { /* keep last state on transient error */ }
+    }
+    if (_audioDotTimer) clearInterval(_audioDotTimer);
+    _audioDotTimer = setInterval(tick, 180);
+    tick();
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
+    startAudioDot();
     const [s1, s2, ard] = await Promise.all([
         apiCall('/1/status'),
         apiCall('/2/status'),
@@ -2314,4 +2404,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const lightsData = await fetch('/api/lights').then(r => r.json()).catch(() => []);
     await Promise.all(lightsData.map(l => fetch(`/api/lights/${l.id}/off`, { method: 'POST' })));
     mtRender();
+
+    // Auto-bring-up: cameras can take a moment to be reachable after the page (or the
+    // camera) boots. Retry the connection for both at 2s, then auto-start preview for
+    // whichever came online at 5s.
+    setTimeout(() => { retryConnection(1); retryConnection(2); }, 2000);
+    setTimeout(() => {
+        [1, 2].forEach(id => {
+            if (camState[id].connected) startPreview(id);
+        });
+    }, 5000);
 });

@@ -71,6 +71,7 @@ class GoProConnection:
         self.timeout = 5
         self.ffmpeg_process = None
         self.stream_active = False
+        self._last_frame_time = 0.0  # wall-clock of the last dispatched MJPEG frame
         self.ble_device = None
         self.stream_udp_port = stream_udp_port
         self.GOPRO_SSID = gopro_ssid or self.DEFAULT_GOPRO_SSID
@@ -236,7 +237,7 @@ class GoProConnection:
                 self.base_url = f"http://{self.gopro_ip}:{self.GOPRO_PORT}"
                 self.connected = True
                 print(f"[{self.name}] Connected at {self.gopro_ip} ({self.connection_type})")
-                self._enable_wired_usb_control()
+                self.enable_wired_usb_control()
                 return True
             else:
                 print(f"[{self.name}] Not reachable at configured IP {self._configured_ip}")
@@ -258,7 +259,7 @@ class GoProConnection:
                     self.base_url = f"http://{self.WIFI_IP}:{self.GOPRO_PORT}"
                     self.connected = True
                     print(f"[{self.name}] Connected via WiFi at {self.WIFI_IP} (confirmed {self.GOPRO_SSID})")
-                    self._enable_wired_usb_control()
+                    self.enable_wired_usb_control()
                     return True
             except Exception:
                 pass  # fall through to USB scan
@@ -281,15 +282,17 @@ class GoProConnection:
             self._session = requests.Session()
             GoProConnection._usb_ip_registry[self.name] = usb_ip
             print(f"[{self.name}] Connected via USB at {usb_ip} (confirmed {self.GOPRO_SSID})")
-            self._enable_wired_usb_control()
+            self.enable_wired_usb_control()
             return True
 
         print(f"[{self.name}] GoPro not found")
         self.connected = False
         return False
 
-    def _enable_wired_usb_control(self) -> None:
-        """Enable wired USB control mode — required before shutter commands work over USB."""
+    def enable_wired_usb_control(self) -> None:
+        """Enable wired USB control mode — required before shutter commands work over USB.
+        Idempotent and cheap; safe to call before every shutter. The camera resets this
+        setting when it sleeps, so it must be re-asserted after a reconnect."""
         result = self.send_command("/gopro/camera/control/wired_usb", {"p": 1})
         if result is not None:
             print(f"[{self.name}] Wired USB control enabled")
@@ -537,6 +540,12 @@ class GoProConnection:
 
     # === MJPEG Streaming ===
 
+    def stream_ready(self) -> bool:
+        """True when the MJPEG stream is active AND frames have flowed very recently
+        (i.e. FFmpeg has locked onto the GoPro UDP feed). Used by the client to know
+        when it's safe to reconnect the preview <img> after a photo."""
+        return self.stream_active and (time.time() - self._last_frame_time) < 2.5
+
     def subscribe_frames(self) -> queue.Queue:
         """Get a frame queue. Caller receives JPEG bytes; old frames dropped when full."""
         q = queue.Queue(maxsize=2)
@@ -573,6 +582,7 @@ class GoProConnection:
                     break
                 frame = buf[start:end + 2]
                 buf = buf[end + 2:]
+                self._last_frame_time = time.time()
                 with self._subscriber_lock:
                     for q in self._subscribers:
                         if q.full():
@@ -592,6 +602,9 @@ class GoProConnection:
 
         self.stop_preview_stream()
         time.sleep(0.5)
+        # Reset AFTER the old dispatch thread is gone, so a dying old frame can't
+        # leave a stale timestamp that false-positives stream_ready().
+        self._last_frame_time = 0.0
 
         print(f"[{self.name}] Starting GoPro preview stream...")
         if not self.start_preview_stream():
@@ -606,7 +619,7 @@ class GoProConnection:
             "-flags", "low_delay",
             "-probesize", "500000",
             "-analyzeduration", "500000",
-            "-i", f"udp://0.0.0.0:{self.stream_udp_port}?timeout=5000000&overrun_nonfatal=1",
+            "-i", f"udp://0.0.0.0:{self.stream_udp_port}?timeout=20000000&overrun_nonfatal=1",
             "-map", "0:v:0",
             "-c:v", "mjpeg",
             "-q:v", "4",
