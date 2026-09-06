@@ -77,6 +77,7 @@ class GoProConnection:
         self.GOPRO_SSID = gopro_ssid or self.DEFAULT_GOPRO_SSID
         self.BLE_NAME = ble_name  # exact BLE advertisement name, e.g. "GoPro 4477"
         self._session = requests.Session()  # may be replaced with a bound session on WiFi connect
+        self._logged_failures: set = set()  # dedupe repeating failure logs per disconnect period
         # Frame fan-out: one dispatch thread, multiple consumer queues
         self._subscribers: list = []
         self._subscriber_lock = threading.Lock()
@@ -224,6 +225,18 @@ class GoProConnection:
 
     # === Connection ===
 
+    def _log_once(self, key: str, msg: str):
+        """Print a repeating failure message only once per disconnect period.
+        The keep-alive/status polls retry connect() every few seconds, which
+        would otherwise spam the console with the same line."""
+        if key not in self._logged_failures:
+            self._logged_failures.add(key)
+            print(msg)
+
+    def _log_rearm(self):
+        """Camera is talking again — let failure messages print once more next time."""
+        self._logged_failures.clear()
+
     def connect(self) -> bool:
         """
         Connect to this camera.
@@ -236,11 +249,12 @@ class GoProConnection:
                 self.connection_type = "usb" if self._configured_ip != self.WIFI_IP else "wifi"
                 self.base_url = f"http://{self.gopro_ip}:{self.GOPRO_PORT}"
                 self.connected = True
+                self._log_rearm()
                 print(f"[{self.name}] Connected at {self.gopro_ip} ({self.connection_type})")
                 self.enable_wired_usb_control()
                 return True
             else:
-                print(f"[{self.name}] Not reachable at configured IP {self._configured_ip}")
+                self._log_once("cfg_unreachable", f"[{self.name}] Not reachable at configured IP {self._configured_ip}")
                 self.connected = False
                 return False
 
@@ -258,6 +272,7 @@ class GoProConnection:
                     self.connection_type = "wifi"
                     self.base_url = f"http://{self.WIFI_IP}:{self.GOPRO_PORT}"
                     self.connected = True
+                    self._log_rearm()
                     print(f"[{self.name}] Connected via WiFi at {self.WIFI_IP} (confirmed {self.GOPRO_SSID})")
                     self.enable_wired_usb_control()
                     return True
@@ -281,11 +296,12 @@ class GoProConnection:
             self.connected = True
             self._session = requests.Session()
             GoProConnection._usb_ip_registry[self.name] = usb_ip
+            self._log_rearm()
             print(f"[{self.name}] Connected via USB at {usb_ip} (confirmed {self.GOPRO_SSID})")
             self.enable_wired_usb_control()
             return True
 
-        print(f"[{self.name}] GoPro not found")
+        self._log_once("not_found", f"[{self.name}] GoPro not found")
         self.connected = False
         return False
 
@@ -347,10 +363,11 @@ class GoProConnection:
                 timeout=self.timeout
             )
             if response.status_code == 200:
+                self._log_rearm()
                 return response.json()
             return None
         except requests.exceptions.RequestException as e:
-            print(f"[{self.name}] Error getting camera state: {e}")
+            self._log_once("state_err", f"[{self.name}] Error getting camera state: {e}")
             return None
 
     def get_camera_info(self) -> Optional[dict]:
@@ -378,6 +395,7 @@ class GoProConnection:
             url = f"{self.base_url}{endpoint}"
             response = self._session.get(url, params=params, timeout=self.timeout)
             if response.status_code == 200:
+                self._log_rearm()
                 if response.text:
                     return response.json()
                 return {"status": "success"}
@@ -386,7 +404,7 @@ class GoProConnection:
                 print(f"[{self.name}] Command failed: {response.status_code} body={body}")
                 return None
         except requests.exceptions.RequestException as e:
-            print(f"[{self.name}] Error sending command: {e}")
+            self._log_once("cmd_err", f"[{self.name}] Error sending command: {e}")
             return None
 
     def keep_alive(self) -> bool:

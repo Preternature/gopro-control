@@ -23,340 +23,425 @@
             </div>
         </header>
 
-        <!-- Both-cameras broadcast bar -->
-        <section class="broadcast-section">
-            <span class="broadcast-label">Both Cameras:</span>
-            <button class="btn btn-primary" onclick="bothCameras('photo')">Photo</button>
-            <button class="btn btn-record" onclick="bothCameras('video-start')">Record</button>
-            <button class="btn btn-danger" onclick="bothCameras('video-stop')">Stop</button>
-            <button class="btn btn-secondary" onclick="bothCameras('stream-start')">Preview Both</button>
-            <button class="btn btn-secondary" onclick="bothCameras('stream-stop')">Stop Previews</button>
-        </section>
+        <!-- ── Two-column stage: viewer left, controls right ── -->
+        <div class="main-layout">
 
-        <!-- Two camera panels -->
-        <div class="cameras-grid">
-
-            <!-- Camera 1 -->
-            <div class="camera-panel" id="panel-1">
-                <div class="camera-panel-header">
-                    <div class="cam-title">
-                        <span class="cam-label">CAM 1</span>
-                        <span class="cam-model">HERO12 Black</span>
-                    </div>
-                    <div class="cam-connection-info" id="cam1-conn-info">—</div>
+            <!-- ══ LEFT: camera viewer ══ -->
+            <div class="viewer-col">
+                <div class="viewer-tabs">
+                    <button class="tab-btn viewer-tab active" id="viewer-tab-1" onclick="setViewerTab('1')">CAM 1</button>
+                    <button class="tab-btn viewer-tab" id="viewer-tab-2" onclick="setViewerTab('2')">CAM 2</button>
+                    <button class="tab-btn viewer-tab" id="viewer-tab-both" onclick="setViewerTab('both')">BOTH</button>
+                    <!-- Live instrument-feed indicator -->
+                    <div id="audio-dot" class="audio-dot offline" title="Instrument feed"></div>
                 </div>
 
-                <!-- Not connected state -->
-                <div class="cam-not-connected" id="cam1-not-connected">
-                    <p>Camera not found — plug in via USB</p>
-                    <div class="button-row">
-                        <button class="btn btn-secondary btn-sm" onclick="retryConnection(1)">Retry</button>
-                    </div>
-                </div>
+                <div class="viewer-body" id="viewer-body" data-view="1">
 
-                <!-- Connected state -->
-                <div class="cam-content" id="cam1-content" style="display:none">
-
-                    <!-- Preview -->
-                    <div class="preview-container" id="cam1-preview-container">
-                        <img id="cam1-video" style="display:none; width:100%;">
-                        <div id="cam1-preview-placeholder" class="preview-placeholder">
-                            <p>No preview</p>
+                    <!-- Cam 1 pane -->
+                    <div class="viewer-cam" id="viewer-cam-1">
+                        <div class="viewer-cam-bar">
+                            <span class="cam-label cam1">CAM 1</span>
+                            <span class="viewer-cam-model">HERO12 Black</span>
                         </div>
-                        <button class="preview-fs-btn" onclick="enterFullscreen('cam1-video')" title="Fullscreen">&#x26F6;</button>
-                    </div>
-                    <div class="preview-btn-row">
-                        <button class="btn btn-secondary btn-sm" id="cam1-btn-start-preview" onclick="startPreview(1)">Start Preview</button>
-                        <button class="btn btn-secondary btn-sm" id="cam1-btn-stop-preview" onclick="stopPreview(1)" style="display:none">Stop Preview</button>
-                        <button class="btn btn-secondary btn-sm" id="cam1-btn-flip" onclick="toggleFlip(1)">Flip</button>
-                        <button class="btn btn-secondary btn-sm" id="cam1-btn-track" onclick="toggleTracking(1)">Track</button>
-                        <button class="btn btn-primary btn-sm" onclick="camAction(1, 'photo')">Photo</button>
-                        <button class="btn btn-record btn-sm" id="cam1-btn-rec-quick" onclick="quickRecord(1)">Record</button>
-                    </div>
-
-                    <!-- Video controls -->
-                    <div class="control-group">
-                        <h3>Video</h3>
-                        <div class="button-row">
-                            <button class="btn btn-record" id="cam1-btn-rec-start" onclick="camAction(1, 'video-start')">Start Recording</button>
-                            <button class="btn btn-danger" id="cam1-btn-rec-stop" onclick="camAction(1, 'video-stop')" disabled>Stop Recording</button>
+                        <div class="preview-container" id="cam1-preview-container">
+                            <img id="cam1-video" style="display:none; width:100%;">
+                            <div id="cam1-preview-placeholder" class="preview-placeholder">
+                                <p>No preview</p>
+                            </div>
+                            <button class="preview-fs-btn preview-pop-btn" onclick="popoutCam(1)" title="Pop out window (Win+Shift+Arrow to move, F11 to fullscreen)">&#x29C9;</button>
+                            <button class="preview-fs-btn" onclick="enterFullscreen('cam1-video')" title="Fullscreen">&#x26F6;</button>
                         </div>
-                        <div class="recording-indicator hidden" id="cam1-rec-indicator">
-                            <span class="record-dot"></span> Recording
-                        </div>
-                        <div class="tracking-indicator hidden" id="cam1-track-indicator">
-                            <span class="track-dot"></span> <span id="cam1-track-text">Scanning...</span>
+                        <div class="preview-btn-row">
+                            <button class="btn btn-secondary btn-sm" id="cam1-btn-start-preview" onclick="startPreview(1)">Start Preview</button>
+                            <button class="btn btn-secondary btn-sm" id="cam1-btn-stop-preview" onclick="stopPreview(1)" style="display:none">Stop Preview</button>
+                            <button class="btn btn-secondary btn-sm" id="cam1-btn-flip" onclick="toggleFlip(1)">Flip</button>
+                            <button class="btn btn-secondary btn-sm" id="cam1-btn-track" onclick="toggleTracking(1)">Track</button>
+                            <button class="btn btn-primary btn-sm" onclick="camAction(1, 'photo')">Photo</button>
+                            <button class="btn btn-record btn-sm" id="cam1-btn-rec-quick" onclick="quickRecord(1)">Record</button>
                         </div>
                     </div>
 
-                    <!-- Photo controls -->
-                    <div class="control-group">
-                        <h3>Photo</h3>
-                        <div class="button-row">
-                            <button class="btn btn-primary btn-sm" onclick="camAction(1, 'photo')">Shoot</button>
-                            <button class="btn btn-secondary btn-sm" onclick="timerPhoto(1)">Timer</button>
-                            <button class="btn btn-secondary btn-sm" onclick="toggleInterval(1)">Interval</button>
+                    <!-- Cam 2 pane -->
+                    <div class="viewer-cam" id="viewer-cam-2">
+                        <div class="viewer-cam-bar">
+                            <span class="cam-label cam2">CAM 2</span>
+                            <span class="viewer-cam-model">HERO13 Black</span>
                         </div>
-                        <div class="mini-settings">
-                            <label>Delay <input type="number" id="cam1-delay" value="5" min="1" max="30">s</label>
-                            <label>Interval <input type="number" id="cam1-interval" value="10" min="1" max="300">s</label>
+                        <div class="preview-container" id="cam2-preview-container">
+                            <img id="cam2-video" style="display:none; width:100%;">
+                            <div id="cam2-preview-placeholder" class="preview-placeholder">
+                                <p>No preview</p>
+                            </div>
+                            <button class="preview-fs-btn preview-pop-btn" onclick="popoutCam(2)" title="Pop out window (Win+Shift+Arrow to move, F11 to fullscreen)">&#x29C9;</button>
+                            <button class="preview-fs-btn" onclick="enterFullscreen('cam2-video')" title="Fullscreen">&#x26F6;</button>
                         </div>
-                        <div class="interval-status hidden" id="cam1-interval-status">Interval running...</div>
-                    </div>
-
-                    <!-- Settings -->
-                    <div class="control-group">
-                        <h3>Settings</h3>
-                        <div class="settings-row">
-                            <label>Res <select id="cam1-resolution">
-                                <option value="5.3k">5.3K</option>
-                                <option value="4k">4K</option>
-                                <option value="2.7k">2.7K</option>
-                                <option value="1080" selected>1080p</option>
-                                <option value="720">720p</option>
-                            </select></label>
-                            <label>FPS <select id="cam1-fps">
-                                <option value="240">240</option>
-                                <option value="120">120</option>
-                                <option value="60">60</option>
-                                <option value="30" selected>30</option>
-                                <option value="24">24</option>
-                            </select></label>
-                            <button class="btn btn-secondary btn-sm" onclick="applySettings(1)">Apply</button>
+                        <div class="preview-btn-row">
+                            <button class="btn btn-secondary btn-sm" id="cam2-btn-start-preview" onclick="startPreview(2)">Start Preview</button>
+                            <button class="btn btn-secondary btn-sm" id="cam2-btn-stop-preview" onclick="stopPreview(2)" style="display:none">Stop Preview</button>
+                            <button class="btn btn-secondary btn-sm" id="cam2-btn-flip" onclick="toggleFlip(2)">Flip</button>
+                            <button class="btn btn-secondary btn-sm" id="cam2-btn-track" onclick="toggleTracking(2)">Track</button>
+                            <button class="btn btn-primary btn-sm" onclick="camAction(2, 'photo')">Photo</button>
+                            <button class="btn btn-record btn-sm" id="cam2-btn-rec-quick" onclick="quickRecord(2)">Record</button>
                         </div>
                     </div>
-
 
                 </div>
             </div>
 
-            <!-- Live instrument-feed indicator, sits in the gutter between the previews -->
-            <div id="audio-dot" class="audio-dot offline" title="Instrument feed"></div>
+            <!-- ══ RIGHT: controls ══ -->
+            <div class="controls-col">
 
-            <!-- Camera 2 -->
-            <div class="camera-panel" id="panel-2">
-                <div class="camera-panel-header">
-                    <div class="cam-title">
-                        <span class="cam-label">CAM 2</span>
-                        <span class="cam-model">HERO13 Black</span>
-                    </div>
-                    <div class="cam-connection-info" id="cam2-conn-info">—</div>
-                </div>
+                <!-- Both-cameras broadcast bar -->
+                <section class="broadcast-section">
+                    <span class="broadcast-label">Both Cameras:</span>
+                    <button class="btn btn-primary" onclick="bothCameras('photo')">Photo</button>
+                    <button class="btn btn-record" onclick="bothCameras('video-start')">Record</button>
+                    <button class="btn btn-danger" onclick="bothCameras('video-stop')">Stop</button>
+                    <button class="btn btn-secondary" onclick="bothCameras('stream-start')">Preview Both</button>
+                    <button class="btn btn-secondary" onclick="bothCameras('stream-stop')">Stop Previews</button>
+                    <span class="broadcast-label" style="margin-left:auto">Audio only:</span>
+                    <button class="btn btn-record" id="audio-btn-start" onclick="audioRecord(true)">🎙 Record Audio</button>
+                    <button class="btn btn-danger" id="audio-btn-stop" onclick="audioRecord(false)" style="display:none">Stop Audio</button>
+                </section>
 
-                <!-- Not connected state -->
-                <div class="cam-not-connected" id="cam2-not-connected">
-                    <p>Camera not found — plug in via USB</p>
-                    <div class="button-row">
-                        <button class="btn btn-secondary btn-sm" onclick="retryConnection(2)">Retry</button>
-                    </div>
-                </div>
+                <!-- Camera control panels (no previews — those live in the viewer) -->
+                <div class="controls-cameras">
 
-                <!-- Connected state -->
-                <div class="cam-content" id="cam2-content" style="display:none">
-
-                    <!-- Preview -->
-                    <div class="preview-container" id="cam2-preview-container">
-                        <img id="cam2-video" style="display:none; width:100%;">
-                        <div id="cam2-preview-placeholder" class="preview-placeholder">
-                            <p>No preview</p>
+                    <!-- Camera 1 -->
+                    <div class="camera-panel" id="panel-1">
+                        <div class="camera-panel-header">
+                            <div class="cam-title">
+                                <span class="cam-label">CAM 1</span>
+                                <span class="cam-model">HERO12 Black</span>
+                            </div>
+                            <div class="cam-connection-info" id="cam1-conn-info">—</div>
                         </div>
-                        <button class="preview-fs-btn" onclick="enterFullscreen('cam2-video')" title="Fullscreen">&#x26F6;</button>
-                    </div>
-                    <div class="preview-btn-row">
-                        <button class="btn btn-secondary btn-sm" id="cam2-btn-start-preview" onclick="startPreview(2)">Start Preview</button>
-                        <button class="btn btn-secondary btn-sm" id="cam2-btn-stop-preview" onclick="stopPreview(2)" style="display:none">Stop Preview</button>
-                        <button class="btn btn-secondary btn-sm" id="cam2-btn-flip" onclick="toggleFlip(2)">Flip</button>
-                        <button class="btn btn-secondary btn-sm" id="cam2-btn-track" onclick="toggleTracking(2)">Track</button>
-                        <button class="btn btn-primary btn-sm" onclick="camAction(2, 'photo')">Photo</button>
-                        <button class="btn btn-record btn-sm" id="cam2-btn-rec-quick" onclick="quickRecord(2)">Record</button>
-                    </div>
 
-                    <!-- Video controls -->
-                    <div class="control-group">
-                        <h3>Video</h3>
-                        <div class="button-row">
-                            <button class="btn btn-record" id="cam2-btn-rec-start" onclick="camAction(2, 'video-start')">Start Recording</button>
-                            <button class="btn btn-danger" id="cam2-btn-rec-stop" onclick="camAction(2, 'video-stop')" disabled>Stop Recording</button>
+                        <!-- Not connected state -->
+                        <div class="cam-not-connected" id="cam1-not-connected">
+                            <p>Camera not found — plug in via USB</p>
+                            <div class="button-row">
+                                <button class="btn btn-secondary btn-sm" onclick="retryConnection(1)">Retry</button>
+                            </div>
                         </div>
-                        <div class="recording-indicator hidden" id="cam2-rec-indicator">
-                            <span class="record-dot"></span> Recording
+
+                        <!-- Connected state -->
+                        <div class="cam-content" id="cam1-content" style="display:none">
+
+                            <!-- Video controls -->
+                            <div class="control-group">
+                                <h3>Video</h3>
+                                <div class="button-row">
+                                    <button class="btn btn-record" id="cam1-btn-rec-start" onclick="camAction(1, 'video-start')">Start Recording</button>
+                                    <button class="btn btn-danger" id="cam1-btn-rec-stop" onclick="camAction(1, 'video-stop')" disabled>Stop Recording</button>
+                                </div>
+                                <div class="recording-indicator hidden" id="cam1-rec-indicator">
+                                    <span class="record-dot"></span> Recording
+                                </div>
+                                <div class="tracking-indicator hidden" id="cam1-track-indicator">
+                                    <span class="track-dot"></span> <span id="cam1-track-text">Scanning...</span>
+                                </div>
+                            </div>
+
+                            <!-- Photo controls -->
+                            <div class="control-group">
+                                <h3>Photo</h3>
+                                <div class="button-row">
+                                    <button class="btn btn-primary btn-sm" onclick="camAction(1, 'photo')">Shoot</button>
+                                    <button class="btn btn-secondary btn-sm" onclick="timerPhoto(1)">Timer</button>
+                                    <button class="btn btn-secondary btn-sm" onclick="toggleInterval(1)">Interval</button>
+                                </div>
+                                <div class="mini-settings">
+                                    <label>Delay <input type="number" id="cam1-delay" value="5" min="1" max="30">s</label>
+                                    <label>Interval <input type="number" id="cam1-interval" value="10" min="1" max="300">s</label>
+                                </div>
+                                <div class="interval-status hidden" id="cam1-interval-status">Interval running...</div>
+                            </div>
+
+                            <!-- Settings -->
+                            <div class="control-group">
+                                <h3>Settings</h3>
+                                <div class="settings-row">
+                                    <label>Res <select id="cam1-resolution">
+                                        <option value="5.3k">5.3K</option>
+                                        <option value="4k">4K</option>
+                                        <option value="2.7k">2.7K</option>
+                                        <option value="1080" selected>1080p</option>
+                                        <option value="720">720p</option>
+                                    </select></label>
+                                    <label>FPS <select id="cam1-fps">
+                                        <option value="240">240</option>
+                                        <option value="120">120</option>
+                                        <option value="60">60</option>
+                                        <option value="30" selected>30</option>
+                                        <option value="24">24</option>
+                                    </select></label>
+                                    <button class="btn btn-secondary btn-sm" onclick="applySettings(1)">Apply</button>
+                                </div>
+                            </div>
+
                         </div>
-                        <div class="tracking-indicator hidden" id="cam2-track-indicator">
-                            <span class="track-dot"></span> <span id="cam2-track-text">Scanning...</span>
+                    </div>
+
+                    <!-- Camera 2 -->
+                    <div class="camera-panel" id="panel-2">
+                        <div class="camera-panel-header">
+                            <div class="cam-title">
+                                <span class="cam-label">CAM 2</span>
+                                <span class="cam-model">HERO13 Black</span>
+                            </div>
+                            <div class="cam-connection-info" id="cam2-conn-info">—</div>
+                        </div>
+
+                        <!-- Not connected state -->
+                        <div class="cam-not-connected" id="cam2-not-connected">
+                            <p>Camera not found — plug in via USB</p>
+                            <div class="button-row">
+                                <button class="btn btn-secondary btn-sm" onclick="retryConnection(2)">Retry</button>
+                            </div>
+                        </div>
+
+                        <!-- Connected state -->
+                        <div class="cam-content" id="cam2-content" style="display:none">
+
+                            <!-- Video controls -->
+                            <div class="control-group">
+                                <h3>Video</h3>
+                                <div class="button-row">
+                                    <button class="btn btn-record" id="cam2-btn-rec-start" onclick="camAction(2, 'video-start')">Start Recording</button>
+                                    <button class="btn btn-danger" id="cam2-btn-rec-stop" onclick="camAction(2, 'video-stop')" disabled>Stop Recording</button>
+                                </div>
+                                <div class="recording-indicator hidden" id="cam2-rec-indicator">
+                                    <span class="record-dot"></span> Recording
+                                </div>
+                                <div class="tracking-indicator hidden" id="cam2-track-indicator">
+                                    <span class="track-dot"></span> <span id="cam2-track-text">Scanning...</span>
+                                </div>
+                            </div>
+
+                            <!-- Photo controls -->
+                            <div class="control-group">
+                                <h3>Photo</h3>
+                                <div class="button-row">
+                                    <button class="btn btn-primary btn-sm" onclick="camAction(2, 'photo')">Shoot</button>
+                                    <button class="btn btn-secondary btn-sm" onclick="timerPhoto(2)">Timer</button>
+                                    <button class="btn btn-secondary btn-sm" onclick="toggleInterval(2)">Interval</button>
+                                </div>
+                                <div class="mini-settings">
+                                    <label>Delay <input type="number" id="cam2-delay" value="5" min="1" max="30">s</label>
+                                    <label>Interval <input type="number" id="cam2-interval" value="10" min="1" max="300">s</label>
+                                </div>
+                                <div class="interval-status hidden" id="cam2-interval-status">Interval running...</div>
+                            </div>
+
+                            <!-- Settings -->
+                            <div class="control-group">
+                                <h3>Settings</h3>
+                                <div class="settings-row">
+                                    <label>Res <select id="cam2-resolution">
+                                        <option value="5.3k">5.3K</option>
+                                        <option value="4k">4K</option>
+                                        <option value="2.7k">2.7K</option>
+                                        <option value="1080" selected>1080p</option>
+                                        <option value="720">720p</option>
+                                    </select></label>
+                                    <label>FPS <select id="cam2-fps">
+                                        <option value="240">240</option>
+                                        <option value="120">120</option>
+                                        <option value="60">60</option>
+                                        <option value="30" selected>30</option>
+                                        <option value="24">24</option>
+                                    </select></label>
+                                    <button class="btn btn-secondary btn-sm" onclick="applySettings(2)">Apply</button>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
 
-                    <!-- Photo controls -->
-                    <div class="control-group">
-                        <h3>Photo</h3>
-                        <div class="button-row">
-                            <button class="btn btn-primary btn-sm" onclick="camAction(2, 'photo')">Shoot</button>
-                            <button class="btn btn-secondary btn-sm" onclick="timerPhoto(2)">Timer</button>
-                            <button class="btn btn-secondary btn-sm" onclick="toggleInterval(2)">Interval</button>
-                        </div>
-                        <div class="mini-settings">
-                            <label>Delay <input type="number" id="cam2-delay" value="5" min="1" max="30">s</label>
-                            <label>Interval <input type="number" id="cam2-interval" value="10" min="1" max="300">s</label>
-                        </div>
-                        <div class="interval-status hidden" id="cam2-interval-status">Interval running...</div>
-                    </div>
+                </div><!-- end controls-cameras -->
 
-                    <!-- Settings -->
-                    <div class="control-group">
-                        <h3>Settings</h3>
-                        <div class="settings-row">
-                            <label>Res <select id="cam2-resolution">
-                                <option value="5.3k">5.3K</option>
-                                <option value="4k">4K</option>
-                                <option value="2.7k">2.7K</option>
-                                <option value="1080" selected>1080p</option>
-                                <option value="720">720p</option>
-                            </select></label>
-                            <label>FPS <select id="cam2-fps">
-                                <option value="240">240</option>
-                                <option value="120">120</option>
-                                <option value="60">60</option>
-                                <option value="30" selected>30</option>
-                                <option value="24">24</option>
-                            </select></label>
-                            <button class="btn btn-secondary btn-sm" onclick="applySettings(2)">Apply</button>
+                <!-- Camera Rail + Gimbal -->
+                <section class="arduino-section" id="arduino-section">
+                    <div class="arduino-header">
+                        <h2>Camera Rail + Gimbal</h2>
+                        <div class="arduino-status-row">
+                            <div id="arduino-status" class="cam-status-pill disconnected">
+                                <span class="status-dot"></span>
+                                <span id="arduino-status-text">Disconnected</span>
+                            </div>
+                            <button class="btn btn-secondary btn-sm" onclick="arduinoConnect()">Connect</button>
                         </div>
                     </div>
 
+                    <div id="arduino-controls" class="arduino-grid" style="display:none">
 
-                </div>
-            </div>
+                        <!-- Rail (manual marks, fenced moves, quiet/strong presets) -->
+                        <div class="control-group rail-panel" id="rail-panel">
+                            <h3>Rail <span class="rail-fw" id="rail-fw"></span></h3>
+                            <div class="rail-status-line" id="rail-status-line">Rail: connecting...</div>
+                            <div class="rail-track" id="rail-track">
+                                <span class="rail-end-label" id="rail-label-left">HOME</span>
+                                <div class="rail-pos-bar" id="rail-pos-bar" title="Click to send the rail there" onclick="railBarClick(event)">
+                                    <div class="rail-pos-marker" id="rail-pos-marker" style="left:0%"></div>
+                                </div>
+                                <span class="rail-end-label" id="rail-label-right">END</span>
+                            </div>
+                            <div class="rail-row" id="rail-jog-row">
+                                <button class="btn btn-sm rail-btn-home" id="rail-jog-home" onmousedown="railJog('home')" onmouseup="railStop()" onmouseleave="railStopIfJogging()">&lt; jog home</button>
+                                <button class="btn btn-danger btn-sm" onclick="railStop()">STOP</button>
+                                <button class="btn btn-sm rail-btn-end" id="rail-jog-end" onmousedown="railJog('end')" onmouseup="railStop()" onmouseleave="railStopIfJogging()">jog end &gt;</button>
+                                <button class="btn btn-sm btn-secondary rail-swap" id="rail-swap" onclick="railSwap()" title="Mirror the buttons so home is on the side it is in the room">&#8644; swap</button>
+                            </div>
+                            <div class="rail-row" id="rail-go-row">
+                                <button class="btn btn-sm rail-btn-home" id="rail-go-home" onclick="railGo('home')">&lt; GO HOME</button>
+                                <button class="btn btn-sm rail-btn-end" id="rail-go-end" onclick="railGo('end')">GO END &gt;</button>
+                            </div>
+                            <div class="rail-speed">
+                                <label>Speed <span class="rail-hint">(step delay, lower = faster)</span>
+                                    <input type="range" id="rail-speed" min="0" max="200" value="60"
+                                           oninput="railSpeedInput()" onchange="railSpeedCommit()">
+                                    <span id="rail-speed-val">60</span>
+                                </label>
+                                <div class="rail-speed-presets">
+                                    <button class="rail-preset" id="rail-preset-slow" onclick="railPreset('slow')">&#128034; SLOW 60 <small>quiet</small></button>
+                                    <button class="rail-preset" id="rail-preset-fast" onclick="railPreset('fast')">&#9889; FAST 10 <small>strong</small></button>
+                                    <span class="rail-hint">avoid 40-50 (resonance)</span>
+                                </div>
+                                <div class="rail-row rail-mode-row">
+                                    <span class="rail-hint">motor</span>
+                                    <button class="rail-preset" id="rail-mode-stealth" onclick="railSetMode('STEALTH')">quiet</button>
+                                    <button class="rail-preset" id="rail-mode-spread" onclick="railSetMode('SPREAD')">strong</button>
+                                    <label class="rail-check"><input type="checkbox" id="rail-scurve" checked onchange="railScurve(this.checked)"> S-curve ramps</label>
+                                </div>
+                                <div class="rail-row rail-fit-row">
+                                    <span class="rail-hint">move in</span>
+                                    <input type="number" id="rail-fit-secs" min="0.5" step="0.5" value="8" style="width:60px"> s
+                                    <span class="rail-hint">to</span>
+                                    <input type="number" id="rail-fit-pct" min="0" max="100" step="1" value="100" style="width:60px"> %
+                                    <button class="btn btn-sm btn-secondary" onclick="railGoFit()">go</button>
+                                    <span class="rail-hint" id="rail-fit-hint"></span>
+                                </div>
+                            </div>
+                            <details class="rail-advanced" id="rail-marks">
+                                <summary>Marks (home / far end)</summary>
+                                <div class="rail-row" id="rail-mark-row">
+                                    <button class="btn btn-sm rail-btn-home" id="rail-mark-home" onclick="railMark('home')">MARK HOME here</button>
+                                    <button class="btn btn-sm rail-btn-end" id="rail-mark-far" onclick="railMark('far')">MARK FAR END here</button>
+                                </div>
+                                <button class="btn btn-sm rail-lock locked" id="rail-lock" onclick="railToggleLock()">LOCKED - marks protected</button>
+                                <p class="rail-hint">Jog near the motor end, mark home. Jog near the far end, mark it. Marks live on the board and survive a server restart, not a power cycle.</p>
+                            </details>
+                        </div>
 
-        </div><!-- end cameras-grid -->
+                        <!-- Pan (Base Servo) -->
+                        <div class="control-group">
+                            <h3>Pan <span id="base-angle-val" class="gimbal-val">90°</span></h3>
+                            <div class="axis-slider-row">
+                                <span class="axis-label">← Left</span>
+                                <input type="range" id="base-angle" min="0" max="180" value="90"
+                                       oninput="arduinoBaseAngle(this.value)">
+                                <span class="axis-label">Right →</span>
+                            </div>
+                            <div class="gimbal-limits-row">
+                                <span class="gimbal-limits-label">Limits</span>
+                                <label>Min <input type="number" id="base-min" min="0" max="180" value="45"
+                                    class="gimbal-limit-input" onchange="applyGimbalLimit()">°</label>
+                                <label>Max <input type="number" id="base-max" min="0" max="180" value="144"
+                                    class="gimbal-limit-input" onchange="applyGimbalLimit()">°</label>
+                                <button class="btn btn-sm btn-secondary" onclick="resetGimbalLimits('base')">Reset</button>
+                            </div>
+                            <div class="button-row" style="margin-top:8px">
+                                <button class="btn btn-secondary btn-sm" onclick="arduinoSetBase(_gimbalLimits.baseMin)">Full Left</button>
+                                <button class="btn btn-secondary btn-sm" onclick="arduinoSetBase(Math.round((_gimbalLimits.baseMin+_gimbalLimits.baseMax)/2))">Center</button>
+                                <button class="btn btn-secondary btn-sm" onclick="arduinoSetBase(_gimbalLimits.baseMax)">Full Right</button>
+                                <button class="btn btn-secondary btn-sm" onclick="arduinoPost('gimbal/sweep',{target:'base'})">Sweep</button>
+                            </div>
+                        </div>
 
-        <!-- Camera Rail + Gimbal -->
-        <section class="arduino-section" id="arduino-section">
-            <div class="arduino-header">
-                <h2>Camera Rail + Gimbal</h2>
-                <div class="arduino-status-row">
-                    <div id="arduino-status" class="cam-status-pill disconnected">
-                        <span class="status-dot"></span>
-                        <span id="arduino-status-text">Disconnected</span>
-                    </div>
-                    <button class="btn btn-secondary btn-sm" onclick="arduinoConnect()">Connect</button>
-                </div>
-            </div>
+                        <!-- Tilt (Camera Pivot) -->
+                        <div class="control-group">
+                            <h3>Tilt <span id="cam-us-val" class="gimbal-val">1500μs</span></h3>
+                            <div class="axis-slider-row">
+                                <span class="axis-label">↑ Up</span>
+                                <input type="range" id="cam-us" min="400" max="2600" value="1900"
+                                       oninput="arduinoCamUs(this.value)">
+                                <span class="axis-label">Down ↓</span>
+                            </div>
+                            <div class="gimbal-limits-row">
+                                <span class="gimbal-limits-label">Limits</span>
+                                <label>Min <input type="number" id="cam-min" min="400" max="2600" value="1300"
+                                    class="gimbal-limit-input" onchange="applyGimbalLimit()">μs</label>
+                                <label>Max <input type="number" id="cam-max" min="400" max="2600" value="2350"
+                                    class="gimbal-limit-input" onchange="applyGimbalLimit()">μs</label>
+                                <button class="btn btn-sm btn-secondary" onclick="resetGimbalLimits('cam')">Reset</button>
+                            </div>
+                            <div class="button-row" style="margin-top:8px">
+                                <button class="btn btn-secondary btn-sm" onclick="arduinoSetCamUs(_gimbalLimits.camMin)">Full Up</button>
+                                <button class="btn btn-secondary btn-sm" onclick="arduinoSetCamUs(Math.round((_gimbalLimits.camMin+_gimbalLimits.camMax)/2))">Center</button>
+                                <button class="btn btn-secondary btn-sm" onclick="arduinoSetCamUs(_gimbalLimits.camMax)">Full Down</button>
+                                <button class="btn btn-secondary btn-sm" onclick="arduinoPost('gimbal/sweep',{target:'cam'})">Sweep</button>
+                            </div>
+                        </div>
 
-            <div id="arduino-controls" class="arduino-grid" style="display:none">
+                        <!-- Both -->
+                        <div class="control-group">
+                            <h3>Both Servos</h3>
+                            <div class="button-row">
+                                <button class="btn btn-primary btn-sm" onclick="arduinoPost('gimbal/center')">Center Both</button>
+                                <button class="btn btn-secondary btn-sm" onclick="arduinoPost('gimbal/sweep',{target:'both'})">Sweep Both</button>
+                            </div>
+                        </div>
 
-                <!-- Rail -->
-                <div class="control-group">
-                    <h3>Rail</h3>
-                    <div class="arduino-rail-settings">
-                        <label>Speed delay (μs)
-                            <input type="range" id="rail-speed" min="10" max="2000" value="91"
-                                   oninput="arduinoRailSlider()" onchange="arduinoSendSettings()">
-                            <span id="rail-speed-val">91</span>
-                        </label>
-                        <label>Duration (ms)
-                            <input type="range" id="rail-duration" min="100" max="60000" value="10000"
-                                   oninput="arduinoRailSlider()" onchange="arduinoSendSettings()">
-                            <span id="rail-duration-val">10000</span>
-                        </label>
-                    </div>
-                    <div class="button-row" style="margin-top:10px">
-                        <button class="btn btn-sm" style="background:#4caf50;color:white" onclick="arduinoPost('rail/away')">➡ Away</button>
-                        <button class="btn btn-sm" style="background:#c8a96e;color:white" onclick="arduinoPost('rail/toward')">⚙ Toward</button>
-                        <button class="btn btn-danger btn-sm" onclick="arduinoPost('rail/stop')">Stop</button>
-                    </div>
-                </div>
+                        <!-- Tracking speed -->
+                        <div class="control-group">
+                            <h3>Track Speed</h3>
+                            <div class="axis-slider-row">
+                                <span class="axis-label">Slow</span>
+                                <input type="range" id="track-speed" min="1" max="10" value="5"
+                                       oninput="setTrackSpeed(+this.value);document.getElementById('track-speed-val').textContent=this.value">
+                                <span class="axis-label">Fast</span>
+                            </div>
+                            <div style="text-align:center;font-size:0.8rem;color:var(--text-secondary)">
+                                Speed: <span id="track-speed-val">5</span>
+                            </div>
+                        </div>
 
-                <!-- Pan (Base Servo) -->
-                <div class="control-group">
-                    <h3>Pan <span id="base-angle-val" class="gimbal-val">90°</span></h3>
-                    <div class="axis-slider-row">
-                        <span class="axis-label">← Left</span>
-                        <input type="range" id="base-angle" min="0" max="180" value="90"
-                               oninput="arduinoBaseAngle(this.value)">
-                        <span class="axis-label">Right →</span>
                     </div>
-                    <div class="gimbal-limits-row">
-                        <span class="gimbal-limits-label">Limits</span>
-                        <label>Min <input type="number" id="base-min" min="0" max="180" value="45"
-                            class="gimbal-limit-input" onchange="applyGimbalLimit()">°</label>
-                        <label>Max <input type="number" id="base-max" min="0" max="180" value="144"
-                            class="gimbal-limit-input" onchange="applyGimbalLimit()">°</label>
-                        <button class="btn btn-sm btn-secondary" onclick="resetGimbalLimits('base')">Reset</button>
-                    </div>
-                    <div class="button-row" style="margin-top:8px">
-                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetBase(_gimbalLimits.baseMin)">Full Left</button>
-                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetBase(Math.round((_gimbalLimits.baseMin+_gimbalLimits.baseMax)/2))">Center</button>
-                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetBase(_gimbalLimits.baseMax)">Full Right</button>
-                        <button class="btn btn-secondary btn-sm" onclick="arduinoPost('gimbal/sweep',{target:'base'})">Sweep</button>
-                    </div>
-                </div>
+                </section>
 
-                <!-- Tilt (Camera Pivot) -->
-                <div class="control-group">
-                    <h3>Tilt <span id="cam-us-val" class="gimbal-val">1500μs</span></h3>
-                    <div class="axis-slider-row">
-                        <span class="axis-label">↑ Up</span>
-                        <input type="range" id="cam-us" min="400" max="2600" value="1900"
-                               oninput="arduinoCamUs(this.value)">
-                        <span class="axis-label">Down ↓</span>
+                <!-- RGB Lights -->
+                <section class="lights-section" id="lights-section">
+                    <div class="lights-header">
+                        <h2>Lights</h2>
+                        <button class="btn btn-sm btn-primary" onclick="addLight()">+ Add Light</button>
+                        <button class="btn btn-sm btn-danger" onclick="stopAllLights()">&#9632; Stop All</button>
                     </div>
-                    <div class="gimbal-limits-row">
-                        <span class="gimbal-limits-label">Limits</span>
-                        <label>Min <input type="number" id="cam-min" min="400" max="2600" value="1300"
-                            class="gimbal-limit-input" onchange="applyGimbalLimit()">μs</label>
-                        <label>Max <input type="number" id="cam-max" min="400" max="2600" value="2350"
-                            class="gimbal-limit-input" onchange="applyGimbalLimit()">μs</label>
-                        <button class="btn btn-sm btn-secondary" onclick="resetGimbalLimits('cam')">Reset</button>
+                    <div class="lights-grid" id="lights-grid">
+                        <!-- populated by JS -->
                     </div>
-                    <div class="button-row" style="margin-top:8px">
-                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetCamUs(_gimbalLimits.camMin)">Full Up</button>
-                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetCamUs(Math.round((_gimbalLimits.camMin+_gimbalLimits.camMax)/2))">Center</button>
-                        <button class="btn btn-secondary btn-sm" onclick="arduinoSetCamUs(_gimbalLimits.camMax)">Full Down</button>
-                        <button class="btn btn-secondary btn-sm" onclick="arduinoPost('gimbal/sweep',{target:'cam'})">Sweep</button>
-                    </div>
-                </div>
+                </section>
 
-                <!-- Both -->
-                <div class="control-group">
-                    <h3>Both Servos</h3>
-                    <div class="button-row">
-                        <button class="btn btn-primary btn-sm" onclick="arduinoPost('gimbal/center')">Center Both</button>
-                        <button class="btn btn-secondary btn-sm" onclick="arduinoPost('gimbal/sweep',{target:'both'})">Sweep Both</button>
+                <!-- Media Browser (tabbed) -->
+                <section class="media-section">
+                    <div class="media-header">
+                        <h2>Media Browser</h2>
+                        <div class="media-tabs">
+                            <button class="tab-btn active" onclick="selectMediaCam(1, this)">CAM 1</button>
+                            <button class="tab-btn" onclick="selectMediaCam(2, this)">CAM 2</button>
+                            <button class="tab-btn" onclick="showDownloads(this)">Downloads</button>
+                        </div>
+                        <button class="btn btn-secondary btn-sm" onclick="loadMedia()">Refresh</button>
                     </div>
-                </div>
-
-                <!-- Tracking speed -->
-                <div class="control-group">
-                    <h3>Track Speed</h3>
-                    <div class="axis-slider-row">
-                        <span class="axis-label">Slow</span>
-                        <input type="range" id="track-speed" min="1" max="10" value="5"
-                               oninput="setTrackSpeed(+this.value);document.getElementById('track-speed-val').textContent=this.value">
-                        <span class="axis-label">Fast</span>
+                    <div id="media-list" class="media-grid">
+                        <p class="placeholder">Select a camera tab and click Refresh</p>
                     </div>
-                    <div style="text-align:center;font-size:0.8rem;color:var(--text-secondary)">
-                        Speed: <span id="track-speed-val">5</span>
-                    </div>
-                </div>
+                </section>
 
-            </div>
-        </section>
+            </div><!-- end controls-col -->
 
-        <!-- Media Browser (tabbed) -->
-        <section class="media-section">
-            <div class="media-header">
-                <h2>Media Browser</h2>
-                <div class="media-tabs">
-                    <button class="tab-btn active" onclick="selectMediaCam(1, this)">CAM 1</button>
-                    <button class="tab-btn" onclick="selectMediaCam(2, this)">CAM 2</button>
-                    <button class="tab-btn" onclick="showDownloads(this)">Downloads</button>
-                </div>
-                <button class="btn btn-secondary btn-sm" onclick="loadMedia()">Refresh</button>
-            </div>
-            <div id="media-list" class="media-grid">
-                <p class="placeholder">Select a camera tab and click Refresh</p>
-            </div>
-        </section>
+        </div><!-- end main-layout -->
 
         <!-- Playback overlay -->
         <section class="playback-section hidden" id="playback-section">
@@ -367,18 +452,6 @@
             </div>
             <div class="playback-controls">
                 <button class="btn btn-secondary" onclick="closePlayback()">Close</button>
-            </div>
-        </section>
-
-        <!-- RGB Lights -->
-        <section class="lights-section" id="lights-section">
-            <div class="lights-header">
-                <h2>Lights</h2>
-                <button class="btn btn-sm btn-primary" onclick="addLight()">+ Add Light</button>
-                <button class="btn btn-sm btn-danger" onclick="stopAllLights()">&#9632; Stop All</button>
-            </div>
-            <div class="lights-grid" id="lights-grid">
-                <!-- populated by JS -->
             </div>
         </section>
 
@@ -419,27 +492,6 @@
 
     <!-- Notifications -->
     <div id="notifications"></div>
-
-    <!-- Floating mini player -->
-    <div id="pip" class="pip hidden">
-        <div class="pip-header" onmousedown="pipDragStart(event)">
-            <span class="pip-title" id="pip-title">Preview</span>
-            <button class="pip-btn" onclick="pipFullscreen(1)" title="Pop out Cam 1 (Win+Shift+Arrow to move, F11 to fullscreen)">1&#x26F6;</button>
-            <button class="pip-btn" onclick="pipFullscreen(2)" title="Pop out Cam 2 (Win+Shift+Arrow to move, F11 to fullscreen)">2&#x26F6;</button>
-            <button class="pip-btn" onclick="pipToggleCollapse()" id="pip-collapse-btn" title="Collapse">&#8212;</button>
-            <button class="pip-btn" onclick="pipClose()" title="Close">&#x2715;</button>
-        </div>
-        <div class="pip-body" id="pip-body">
-            <div class="pip-stream" id="pip-stream-1" style="display:none">
-                <span class="pip-cam-label">CAM 1</span>
-                <img id="pip-img-1" src="" alt="">
-            </div>
-            <div class="pip-stream" id="pip-stream-2" style="display:none">
-                <span class="pip-cam-label">CAM 2</span>
-                <img id="pip-img-2" src="" alt="">
-            </div>
-        </div>
-    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
     <script src="/static/app.js"></script>

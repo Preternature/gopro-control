@@ -56,11 +56,9 @@ function updateCamStatus(camId, connected, ip = null, connType = null) {
         }
         notConnected.style.display = 'none';
         content.style.display = 'block';
-        // Apply default flip state visually
-        if (camState[camId].flipped) {
-            el(`cam${camId}-video`).style.transform = 'rotate(180deg)';
-            el(`cam${camId}-btn-flip`).style.background = 'var(--primary-color)';
-        }
+        // Apply flip state visually (class-based so it survives native fullscreen)
+        el(`cam${camId}-video`).classList.toggle('preview-flipped', camState[camId].flipped);
+        el(`cam${camId}-btn-flip`).style.background = camState[camId].flipped ? 'var(--primary-color)' : '';
     } else {
         pill.classList.remove('connected');
         pill.classList.add('disconnected');
@@ -111,12 +109,10 @@ async function connectCamWifi(camId) {
 function toggleFlip(camId) {
     const video = el(`cam${camId}-video`);
     const btn = el(`cam${camId}-btn-flip`);
-    const flipped = video.style.transform === 'rotate(180deg)';
-    camState[camId].flipped = !flipped;
-    video.style.transform = flipped ? '' : 'rotate(180deg)';
-    btn.style.background = flipped ? '' : 'var(--primary-color)';
-    const pipImg = el(`pip-img-${camId}`);
-    if (pipImg) pipImg.style.transform = camState[camId].flipped ? 'rotate(180deg)' : '';
+    const nowFlipped = !camState[camId].flipped;
+    camState[camId].flipped = nowFlipped;
+    video.classList.toggle('preview-flipped', nowFlipped);
+    btn.style.background = nowFlipped ? 'var(--primary-color)' : '';
 }
 
 async function wakeWifiBle(camId) {
@@ -242,6 +238,7 @@ async function bothCameras(action) {
     } else if (action === 'video-stop') {
         await Promise.all([camAction(1, 'video-stop'), camAction(2, 'video-stop')]);
     } else if (action === 'stream-start') {
+        setViewerTab('both');
         await Promise.all([startPreview(1), startPreview(2)]);
     } else if (action === 'stream-stop') {
         await Promise.all([stopPreview(1), stopPreview(2)]);
@@ -251,14 +248,12 @@ async function bothCameras(action) {
 // ─── HLS Preview ──────────────────────────────────────────────────────────────
 
 // Poll the server until the MJPEG stream is confirmed producing frames, then
-// reconnect the preview <img> (and PiP) once. Used to restore the preview after a
+// reconnect the preview <img> once. Used to restore the preview after a
 // photo, where the camera switches modes and FFmpeg needs a few seconds to relock.
 async function reconnectPreviewWhenReady(camId, maxMs = 60000) {
     const img = el(`cam${camId}-video`);
-    const pipImg = el(`pip-img-${camId}`);
     const wantMain = img && img.style.display !== 'none';
-    const wantPip = pipImg && el(`pip-stream-${camId}`)?.style.display !== 'none';
-    if (!wantMain && !wantPip) return;  // preview wasn't live; nothing to restore
+    if (!wantMain) return;  // preview wasn't live; nothing to restore
 
     // The GoPro takes ~15-20s to resume its video feed after a photo (firmware
     // limitation). Show a live countdown-ish status and reconnect the moment frames
@@ -271,9 +266,7 @@ async function reconnectPreviewWhenReady(camId, maxMs = 60000) {
             ready = (await fetch(`/api/${camId}/stream/ready`).then(r => r.json())).ready;
         } catch (e) { /* server momentarily busy — keep trying */ }
         if (ready) {
-            const url = `/api/${camId}/mjpeg?t=${Date.now()}`;
-            if (wantMain) img.src = url;
-            if (wantPip) pipImg.src = url;
+            img.src = `/api/${camId}/mjpeg?t=${Date.now()}`;
             showNotification(`Cam ${camId}: preview restored (${Math.round((Date.now()-start)/1000)}s)`, 'success');
             return;
         }
@@ -296,7 +289,6 @@ async function startPreview(camId) {
     placeholder.style.display = 'none';
     el(`cam${camId}-btn-start-preview`).style.display = 'none';
     el(`cam${camId}-btn-stop-preview`).style.display = 'inline-block';
-    pipShow(camId);
     showNotification(`Cam ${camId}: Preview live`, 'success');
 }
 
@@ -314,119 +306,54 @@ async function stopPreview(camId) {
     el(`cam${camId}-preview-placeholder`).style.display = 'flex';
     el(`cam${camId}-btn-start-preview`).style.display = 'inline-block';
     el(`cam${camId}-btn-stop-preview`).style.display = 'none';
-    pipHide(camId);
     showNotification(`Cam ${camId}: Preview stopped`, 'info');
 }
 
 // ─── Fullscreen ───────────────────────────────────────────────────────────────
 
 function enterFullscreen(elemId) {
-    const el_ = el(elemId);
-    if (!el_ || el_.style.display === 'none') return;
-    (el_.requestFullscreen || el_.webkitRequestFullscreen || el_.mozRequestFullScreen)?.call(el_);
+    const vid = el(elemId);
+    if (!vid || vid.style.display === 'none') return;
+    // Fullscreen the CONTAINER, not the <img> — the browser strips the flip
+    // transform off whatever element is directly fullscreened, but leaves the
+    // img (a child) rotated. CSS centers/letterboxes the img in fullscreen.
+    const target = vid.closest('.preview-container') || vid;
+    (target.requestFullscreen || target.webkitRequestFullscreen || target.mozRequestFullScreen)?.call(target);
 }
 
-// ─── Floating mini player (PiP) ───────────────────────────────────────────────
+// ─── Camera viewer tabs (CAM 1 / CAM 2 / BOTH) ────────────────────────────────
 
-let _pipCollapsed = false;
-let _pipDrag = null;  // { startX, startY, origRight, origBottom }
-
-function pipShow(camId) {
-    const stream = el(`pip-stream-${camId}`);
-    const img    = el(`pip-img-${camId}`);
-    if (stream && img) {
-        img.src = `/api/${camId}/mjpeg`;
-        img.style.transform = camState[camId]?.flipped ? 'rotate(180deg)' : '';
-        stream.style.display = 'block';
-    }
-    _pipRefreshTitle();
-    el('pip').classList.remove('hidden');
+function setViewerTab(view) {
+    el('viewer-body').dataset.view = view;
+    document.querySelectorAll('.viewer-tab').forEach(b => b.classList.remove('active'));
+    el(`viewer-tab-${view}`)?.classList.add('active');
 }
 
-function pipHide(camId) {
-    const stream = el(`pip-stream-${camId}`);
-    const img    = el(`pip-img-${camId}`);
-    if (stream) stream.style.display = 'none';
-    if (img)    img.src = '';
-    _pipRefreshTitle();
-    // Hide pip entirely if no streams left
-    const anyVisible = [1, 2].some(id => el(`pip-stream-${id}`)?.style.display !== 'none');
-    if (!anyVisible) el('pip').classList.add('hidden');
-}
-
-function _pipRefreshTitle() {
-    const active = [1, 2].filter(id => el(`pip-stream-${id}`)?.style.display !== 'none');
-    el('pip-title').textContent = active.length === 2 ? 'Cam 1 + 2' : active.length === 1 ? `Cam ${active[0]}` : 'Preview';
-}
-
-function pipClose() {
-    [1, 2].forEach(id => stopPreview(id));
-}
-
-function pipFullscreen(camId) {
-    // If no camId given, use whichever stream is visible (prefer cam1)
-    const active = camId || [1, 2].find(id => el(`pip-stream-${id}`)?.style.display !== 'none');
-    if (!active) return;
-    const flipped   = camState[active]?.flipped;
+// Pop a camera stream out into a real OS window (multi-monitor friendly)
+function popoutCam(camId) {
+    const flipped   = camState[camId]?.flipped;
     const transform = flipped ? 'rotate(180deg)' : '';
     const origin    = window.location.origin;
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>LCA \xb7 Cam ${active}</title>
+<title>LCA \xb7 Cam ${camId}</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box }
   body { background:#000; display:flex; align-items:center; justify-content:center;
          width:100vw; height:100vh; overflow:hidden }
   img  { max-width:100%; max-height:100%; object-fit:contain; transform:${transform} }
 </style></head><body>
-<img src="${origin}/api/${active}/mjpeg">
+<img src="${origin}/api/${camId}/mjpeg">
 </body></html>`;
     // Real OS window — Win+Shift+Arrow moves it to another monitor, then F11 to fullscreen there
-    const popup = window.open('', `lca-cam${active}`, 'width=960,height=720,resizable=yes');
+    const popup = window.open('', `lca-cam${camId}`, 'width=960,height=720,resizable=yes');
     if (popup) { popup.document.open(); popup.document.write(html); popup.document.close(); }
-}
-
-function pipToggleCollapse() {
-    _pipCollapsed = !_pipCollapsed;
-    el('pip-body').style.display    = _pipCollapsed ? 'none' : 'block';
-    el('pip-collapse-btn').textContent = _pipCollapsed ? '▲' : '—';
-}
-
-// Drag to reposition
-function pipDragStart(e) {
-    if (e.button !== 0) return;
-    const pip = el('pip');
-    const rect = pip.getBoundingClientRect();
-    _pipDrag = {
-        startX: e.clientX,
-        startY: e.clientY,
-        origRight:  window.innerWidth  - rect.right,
-        origBottom: window.innerHeight - rect.bottom,
-    };
-    document.addEventListener('mousemove', _pipDragMove);
-    document.addEventListener('mouseup',   _pipDragEnd);
-    e.preventDefault();
-}
-
-function _pipDragMove(e) {
-    if (!_pipDrag) return;
-    const pip = el('pip');
-    const dx = e.clientX - _pipDrag.startX;
-    const dy = e.clientY - _pipDrag.startY;
-    pip.style.right  = Math.max(0, _pipDrag.origRight  - dx) + 'px';
-    pip.style.bottom = Math.max(0, _pipDrag.origBottom + dy) + 'px';
-}
-
-function _pipDragEnd() {
-    _pipDrag = null;
-    document.removeEventListener('mousemove', _pipDragMove);
-    document.removeEventListener('mouseup',   _pipDragEnd);
 }
 
 // ─── Media Browser ─────────────────────────────────────────────────────────────
 
 function selectMediaCam(camId, btn) {
     activeMediaCam = camId;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.media-tabs .tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     loadMedia();
 }
@@ -467,7 +394,7 @@ async function downloadMedia(camId, directory, filename) {
 }
 
 async function showDownloads(btn) {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.media-tabs .tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 
     const mediaList = el('media-list');
@@ -654,18 +581,166 @@ async function arduinoPost(endpoint, body = {}) {
     return result;
 }
 
-function arduinoRailSlider() {
+// ── Rail (manual marks, fenced moves, quiet/strong presets) ──────────────────
+// The board owns position: home = 0 (motor end), far mark = length. The UI
+// only reflects /api/arduino/rail/status and sends intents. "home"/"end" are
+// the human directions; the server maps them to the firmware's U/D.
+
+let _railLastStatus = null;
+let _railJogging = false;
+let _railMirror = false;
+
+function railSpeedInput() {
     el('rail-speed-val').textContent = el('rail-speed').value;
-    el('rail-duration-val').textContent = el('rail-duration').value;
-    debounceArduino('rail-settings', arduinoSendSettings, 150);
+    railMarkPresetButtons(parseInt(el('rail-speed').value), _railLastStatus?.mode);
+}
+async function railSpeedCommit() {
+    await arduinoPost('rail/settings', { speed: parseInt(el('rail-speed').value) });
+}
+function railMarkPresetButtons(speed, mode) {
+    el('rail-preset-slow')?.classList.toggle('active', speed === 60 && mode === 'STEALTH');
+    el('rail-preset-fast')?.classList.toggle('active', speed === 10 && mode === 'SPREAD');
+    el('rail-mode-stealth')?.classList.toggle('active', mode === 'STEALTH');
+    el('rail-mode-spread')?.classList.toggle('active', mode === 'SPREAD');
+}
+async function railPreset(name) {
+    const r = await arduinoPost('rail/preset', { name });
+    if (r?.preset) {
+        el('rail-speed').value = r.preset.speed;
+        el('rail-speed-val').textContent = r.preset.speed;
+        if (_railLastStatus) _railLastStatus.mode = r.preset.mode;
+        railMarkPresetButtons(r.preset.speed, r.preset.mode);
+    }
+}
+async function railSetMode(mode) {
+    await arduinoPost('rail/mode', { mode: mode.toLowerCase() });
+    if (_railLastStatus) _railLastStatus.mode = mode;
+    railMarkPresetButtons(parseInt(el('rail-speed').value), mode);
+}
+async function railScurve(on) {
+    await arduinoPost('rail/settings', { scurve: !!on });
 }
 
-async function arduinoSendSettings() {
-    await arduinoPost('rail/settings', {
-        speed: parseInt(el('rail-speed').value),
-        duration: parseInt(el('rail-duration').value),
-    });
+async function railJog(dir) {
+    _railJogging = true;
+    await arduinoPost('rail/jog', { dir });
 }
+async function railStop() {
+    _railJogging = false;
+    await arduinoPost('rail/stop');
+}
+function railStopIfJogging() { if (_railJogging) railStop(); }
+
+async function railGo(target, extra = {}) {
+    const r = await arduinoPost('rail/go', { target, ...extra });
+    if (r && !r.success && r.error) showNotification(`Rail: ${r.error}`, 'error');
+    return r;
+}
+async function railGoFit() {
+    const secs = parseFloat(el('rail-fit-secs').value);
+    const pct  = parseFloat(el('rail-fit-pct').value);
+    if (!(secs > 0)) return;
+    const r = await railGo({ percent: pct }, { seconds: secs });
+    const hint = el('rail-fit-hint');
+    if (r?.fit) {
+        hint.textContent = r.fit.ok ? `delay ${r.fit.delay}` : `too fast: min ${r.fit.min_seconds ?? '?'} s`;
+    }
+}
+async function railBarClick(event) {
+    const st = _railLastStatus;
+    if (!st || !st.homed || st.length <= 0) return;
+    const bar = el('rail-pos-bar');
+    let pct = (event.clientX - bar.getBoundingClientRect().left) / bar.offsetWidth * 100;
+    if (_railMirror) pct = 100 - pct;
+    await railGo({ percent: Math.max(0, Math.min(100, pct)) });
+}
+
+async function railMark(which) {
+    const r = await arduinoPost(`rail/mark/${which}`);
+    if (r?.success) showNotification(which === 'home' ? 'Home marked here (position 0)' : `Far end marked at ${r.length} steps`, 'success');
+    else if (r?.error) showNotification(`Rail: ${r.error}`, 'error');
+}
+async function railToggleLock() {
+    const locked = !(_railLastStatus?.locked ?? true);
+    await arduinoPost('rail/lock', { locked });
+    if (_railLastStatus) _railLastStatus.locked = locked;
+    railRenderLock(locked);
+}
+function railRenderLock(locked) {
+    const btn = el('rail-lock');
+    if (!btn) return;
+    btn.textContent = locked ? 'LOCKED - marks protected (click to unlock)' : 'UNLOCKED - marking allowed (click to lock)';
+    btn.classList.toggle('locked', locked);
+    ['rail-mark-home', 'rail-mark-far'].forEach(id => { const b = el(id); if (b) b.disabled = locked; });
+}
+
+// Mirror the rows so the screen matches the room (home on the left or the right).
+async function railSwap() {
+    _railMirror = !_railMirror;
+    if (_railLastStatus) _railLastStatus.mirror = _railMirror;
+    await arduinoPost('rail/settings', { mirror: _railMirror });
+    railRenderMirror();
+}
+function railRenderMirror() {
+    ['rail-jog-row', 'rail-go-row', 'rail-mark-row'].forEach(id => {
+        const row = el(id);
+        if (!row) return;
+        const homeBtn = row.querySelector('.rail-btn-home');
+        const endBtn  = row.querySelector('.rail-btn-end');
+        if (!homeBtn || !endBtn) return;
+        // STOP / swap keep their slots; only the home/end pair trade places
+        if (_railMirror) { if (endBtn.compareDocumentPosition(homeBtn) & Node.DOCUMENT_POSITION_PRECEDING) row.insertBefore(endBtn, homeBtn); }
+        else             { if (homeBtn.compareDocumentPosition(endBtn) & Node.DOCUMENT_POSITION_PRECEDING) row.insertBefore(homeBtn, endBtn); }
+    });
+    const labels = {
+        'rail-jog-home': _railMirror ? 'jog home >' : '< jog home',
+        'rail-jog-end':  _railMirror ? '< jog end'  : 'jog end >',
+        'rail-go-home':  _railMirror ? 'GO HOME >'  : '< GO HOME',
+        'rail-go-end':   _railMirror ? '< GO END'   : 'GO END >',
+    };
+    for (const [id, txt] of Object.entries(labels)) { const b = el(id); if (b) b.textContent = txt; }
+    el('rail-label-left').textContent  = _railMirror ? 'END'  : 'HOME';
+    el('rail-label-right').textContent = _railMirror ? 'HOME' : 'END';
+    el('rail-swap')?.classList.toggle('active', _railMirror);
+}
+
+async function railStatusPoll() {
+    const controls = el('arduino-controls');
+    if (!controls || controls.style.display === 'none') return;
+    const line = el('rail-status-line'), marker = el('rail-pos-marker'), bar = el('rail-pos-bar');
+    if (!line) return;
+    let st;
+    try { st = await (await fetch('/api/arduino/rail/status')).json(); } catch { return; }
+    const first = !_railLastStatus;
+    _railLastStatus = st;
+
+    if (first || !!st.mirror !== _railMirror) { _railMirror = !!st.mirror; railRenderMirror(); }
+    if (first) {
+        el('rail-speed').value = st.speed; el('rail-speed-val').textContent = st.speed;
+        el('rail-scurve').checked = !!st.scurve;
+        railRenderLock(!!st.locked);
+    }
+    railMarkPresetButtons(parseInt(el('rail-speed').value), st.mode);
+
+    const usable = st.homed && st.length > 0;
+    bar.classList.toggle('usable', usable);
+    if (st.stalled) {
+        line.textContent = 'Rail stalled - it hit something. Jog off it, then re-mark home.';
+        line.className = 'rail-status-line warn';
+    } else if (usable) {
+        const pct = Math.max(0, Math.min(100, st.pos / st.length * 100));
+        marker.style.left = `${_railMirror ? 100 - pct : pct}%`;
+        line.textContent = (st.moving ? 'Moving  ' : 'At  ') + `${Math.round(pct)}%  (${st.pos} / ${st.length})  ${st.mode === 'SPREAD' ? 'strong' : 'quiet'} S${st.speed}`;
+        line.className = 'rail-status-line ' + (st.moving ? 'busy' : 'ok');
+    } else if (st.homed) {
+        line.textContent = 'Home marked. Jog to the far end and MARK FAR END (under Marks).';
+        line.className = 'rail-status-line busy';
+    } else {
+        line.textContent = 'No home on the board. Jog near the motor end and MARK HOME (under Marks).';
+        line.className = 'rail-status-line warn';
+    }
+}
+setInterval(railStatusPoll, 1000);
 
 // ── Gimbal limits (persisted to localStorage) ─────────────────────────────────
 const _GIMBAL_LIMIT_KEY = 'gimbal_limits';
@@ -772,9 +847,11 @@ socket.on('photo_taken', (data) => {
 });
 
 socket.on('download_progress', (data) => {
-    console.log('[LCA] socket download_progress', data);
-    if (data.progress === 0) {
-        showNotification(`Cam ${data.cam_id}: Saving "${data.filename}" to PC...`, 'info');
+    const pct = Math.round(data.progress || 0);
+    // Only log milestones to avoid console spam on large files.
+    if (pct === 0 || pct % 25 === 0) console.log(`[LCA] download_progress ${data.filename} ${pct}%`);
+    if (pct === 0) {
+        showNotification(`Cam ${data.cam_id}: Saving "${data.filename}" to PC…`, 'info');
     }
 });
 
@@ -1820,7 +1897,10 @@ function mtRender() {
             const left  = (b.start    / total * 100).toFixed(3);
             const width = (b.duration / total * 100).toFixed(3);
             const sel   = _mt.selected?.track === td.key && _mt.selected?.idx === i;
-            const label = (b.action || b.direction || '?') + ` ${b.duration}s`;
+            const railKind = b.kind || (b.direction ? 'jog' : (b.target !== undefined ? 'goto' : null));
+            const railLabel = railKind === 'jog' ? `jog ${b.direction==='forward'?'home':'end'}`
+                            : railKind === 'goto' ? `to ${b.target ?? 'end'}${['home','end'].includes(String(b.target ?? 'end')) ? '' : '%'}` : null;
+            const label = (b.action || railLabel || '?') + ` ${b.duration}s`;
             return `<div class="mt-block${sel ? ' mt-block-sel' : ''}"
                 style="left:${left}%;width:${width}%;background:${td.color || '#666'}"
                 onmousedown="mtBlockMouseDown(event,'${td.key}',${i})"
@@ -1988,13 +2068,33 @@ function mtRenderEditor() {
             onchange="mtBlockProp('${sel.track}',${sel.idx},'duration',+this.value)"></label>`;
 
     if (sel.track === 'rail') {
-        const dirOpts = ['forward','backward'].map(d =>
-            `<option value="${d}"${b.direction===d?' selected':''}>${d.charAt(0).toUpperCase()+d.slice(1)}</option>`
-        ).join('');
+        const kind = b.kind || (b.direction ? 'jog' : 'goto');
         html += `
+        <label>Kind <select onchange="mtBlockProp('${sel.track}',${sel.idx},'kind',this.value)">
+            <option value="goto"${kind==='goto'?' selected':''}>Go to</option>
+            <option value="jog"${kind==='jog'?' selected':''}>Jog (timed)</option></select></label>`;
+        if (kind === 'goto') {
+            const tgt = b.target ?? 'end';
+            const isPct = !['home','end'].includes(String(tgt));
+            const tgtSel = ['home','end','pct'].map(t =>
+                `<option value="${t}"${(t==='pct' ? isPct : tgt===t)?' selected':''}>${t==='pct'?'percent':t}</option>`).join('');
+            html += `
+        <label>Target <select onchange="mtRailTarget('${sel.track}',${sel.idx},this.value)">${tgtSel}</select></label>
+        ${isPct ? `<label>% <input type="number" min="0" max="100" value="${tgt}" style="width:55px"
+            onchange="mtBlockProp('${sel.track}',${sel.idx},'target',+this.value)"></label>` : ''}
+        <label><input type="checkbox" ${b.fit !== false ? 'checked' : ''}
+            onchange="mtBlockProp('${sel.track}',${sel.idx},'fit',this.checked); mtSelectBlock('${sel.track}',${sel.idx})"> fit to duration</label>
+        ${b.fit === false ? `<label>Speed <input type="number" min="0" max="200" value="${b.speed ?? 60}" style="width:60px"
+            onchange="mtBlockProp('${sel.track}',${sel.idx},'speed',+this.value)"></label>` : ''}`;
+        } else {
+            const dirOpts = ['forward','backward'].map(d =>
+                `<option value="${d}"${b.direction===d?' selected':''}>${d==='forward'?'toward home':'toward end'}</option>`
+            ).join('');
+            html += `
         <label>Direction <select onchange="mtBlockProp('${sel.track}',${sel.idx},'direction',this.value)">${dirOpts}</select></label>
-        <label>Speed(μs) <input type="number" min="10" max="2000" value="${b.speed||91}" style="width:65px"
+        <label>Speed <input type="number" min="0" max="200" value="${b.speed ?? 60}" style="width:60px"
             onchange="mtBlockProp('${sel.track}',${sel.idx},'speed',+this.value)"></label>`;
+        }
     } else if (sel.track === 'cam1' || sel.track === 'cam2') {
         const actionOpts = [
             { v: 'video_start', l: 'Start Recording' },
@@ -2011,6 +2111,11 @@ function mtRenderEditor() {
              <button class="btn btn-sm btn-secondary" onclick="mtPasteBlock()">Paste</button>
              <button class="btn btn-sm btn-danger" onclick="mtDeleteBlock('${sel.track}',${sel.idx})">Delete</button></div>`;
     editor.innerHTML = html;
+}
+
+function mtRailTarget(track, idx, val) {
+    mtBlockProp(track, idx, 'target', val === 'pct' ? 50 : val);
+    mtSelectBlock(track, idx);
 }
 
 function mtBlockProp(track, idx, key, val) {
@@ -2040,7 +2145,7 @@ function mtAddBlock(track, lightId = null) {
         const blocks = _mt.tracks.rail;
         const last   = blocks[blocks.length - 1];
         const start  = last ? last.start + last.duration : 0;
-        blocks.push({ start, duration: 10.0, direction: 'forward', speed: 91 });
+        blocks.push({ start, duration: 8.0, kind: 'goto', target: (last && last.target === 'end') ? 'home' : 'end', fit: true, speed: 60 });
     } else if (track === 'cam1' || track === 'cam2') {
         const blocks = _mt.tracks[track];
         const last   = blocks[blocks.length - 1];
@@ -2352,6 +2457,29 @@ function mtAddLightTrack(lightId) {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
+// ─── Standalone audio recording (no camera required) ────────────────────────
+let _audioManualRecording = false;
+function setAudioButtons(recording) {
+    _audioManualRecording = recording;
+    const start = el('audio-btn-start'), stop = el('audio-btn-stop');
+    if (start) start.style.display = recording ? 'none' : '';
+    if (stop)  stop.style.display  = recording ? '' : 'none';
+}
+async function audioRecord(start) {
+    const btn = el(start ? 'audio-btn-start' : 'audio-btn-stop');
+    if (btn) btn.disabled = true;
+    try {
+        const r = await apiCall(start ? '/audio/start' : '/audio/stop', 'POST');
+        if (!r || !r.success) {
+            showNotification(`Audio: ${(r && r.audio && r.audio.error) || 'failed'}`, 'error');
+            return;  // leave buttons as-is (audio_status/saved socket events also report)
+        }
+        setAudioButtons(start);
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
 // ─── Instrument-feed "audible" dot ──────────────────────────────────────────
 // Polls the live audio level and lights the green dot between the two previews
 // when the instrument feed is audible (before and during recording).
@@ -2410,8 +2538,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // whichever came online at 5s.
     setTimeout(() => { retryConnection(1); retryConnection(2); }, 2000);
     setTimeout(() => {
-        [1, 2].forEach(id => {
-            if (camState[id].connected) startPreview(id);
-        });
+        const online = [1, 2].filter(id => camState[id].connected);
+        online.forEach(id => startPreview(id));
+        // Point the viewer at whatever came up: both cams → BOTH tab, one cam → its tab
+        if (online.length === 2) setViewerTab('both');
+        else if (online.length === 1) setViewerTab(String(online[0]));
     }, 5000);
 });

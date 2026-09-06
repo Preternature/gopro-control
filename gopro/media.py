@@ -4,6 +4,7 @@ Download, browse, and manage media files
 """
 
 import os
+import time
 import requests
 from typing import Optional, List
 from .connection import GoProConnection
@@ -51,36 +52,70 @@ class GoProMedia:
             return media_list[-1]
         return None
 
-    def download_file(self, directory: str, filename: str,
-                      progress_callback=None) -> Optional[str]:
-        """Download a specific media file from the camera"""
+    def download_file(self, directory: str, filename: str, progress_callback=None,
+                      segment: int = 16 << 20, seg_retries: int = 6) -> Optional[str]:
+        """Download a media file from the camera in fixed-size segments.
+
+        GoPro videos can be several GB and the camera stalls if you hold one HTTP
+        connection open too long over USB (it serves a burst then goes silent). So we
+        pull the file in short range requests (~16 MB each) that each finish before a
+        stall, retrying any segment that drops. This completes reliably where a single
+        long-lived download times out. Progress is reported at whole-percent steps."""
         url = f"http://{self.conn.gopro_ip}:8080/videos/DCIM/{directory}/{filename}"
         local_path = os.path.join(self.download_dir, filename)
 
+        # Total size via a tiny range probe (Content-Range: bytes 0-0/<total>).
+        total = 0
         try:
-            response = requests.get(url, stream=True, timeout=30)
-
-            if response.status_code != 200:
-                print(f"Failed to download: {response.status_code}")
-                return None
-
-            total_size = int(response.headers.get('content-length', 0))
-            downloaded = 0
-
-            with open(local_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        if progress_callback and total_size:
-                            progress = (downloaded / total_size) * 100
-                            progress_callback(progress)
-
-            return local_path
-
+            probe = requests.get(url, headers={'Range': 'bytes=0-0'}, timeout=(10, 15))
+            cr = probe.headers.get('content-range', '')
+            if '/' in cr:
+                total = int(cr.rsplit('/', 1)[-1])
+            else:
+                total = int(probe.headers.get('content-length', 0))
+            probe.close()
         except requests.exceptions.RequestException as e:
-            print(f"Download error: {e}")
+            print(f"[media] {filename}: size probe failed ({e})")
             return None
+        if not total:
+            print(f"[media] {filename}: could not determine size")
+            return None
+
+        last_pct = -1
+        pos = 0
+        try:
+            with open(local_path, 'wb') as f:
+                while pos < total:
+                    end = min(pos + segment, total) - 1
+                    data = None
+                    for attempt in range(seg_retries):
+                        try:
+                            r = requests.get(url, headers={'Range': f'bytes={pos}-{end}'},
+                                             timeout=(10, 30))
+                            if r.status_code not in (200, 206):
+                                time.sleep(0.5)
+                                continue
+                            data = r.content
+                            break
+                        except requests.exceptions.RequestException:
+                            time.sleep(0.8)  # transient stall — retry the same segment
+                    if not data:
+                        print(f"[media] {filename}: segment at {pos}/{total} failed after "
+                              f"{seg_retries} tries")
+                        return None
+                    f.write(data)
+                    pos += len(data)
+                    if progress_callback:
+                        pct = int(pos / total * 100)
+                        if pct != last_pct:
+                            last_pct = pct
+                            progress_callback(pct)
+        except OSError as e:
+            print(f"[media] {filename}: write error: {e}")
+            return None
+
+        print(f"[media] {filename}: downloaded {pos}/{total} bytes")
+        return local_path
 
     def download_latest(self, progress_callback=None) -> Optional[str]:
         """Download the most recent media file"""

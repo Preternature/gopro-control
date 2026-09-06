@@ -25,10 +25,112 @@ body {
 }
 
 .container {
-    max-width: 1400px;
+    max-width: 1760px;
     margin: 0 auto;
     padding: 20px;
 }
+
+/* ── Main two-column stage: viewer left, controls right ── */
+.main-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(420px, 1fr);
+    gap: 18px;
+    align-items: start;
+    margin-bottom: 18px;
+}
+
+.controls-col {
+    min-width: 0;
+}
+
+/* Camera control panels sit side-by-side inside the controls column */
+.controls-cameras {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+@media (max-width: 1500px) {
+    .controls-cameras { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 1150px) {
+    .main-layout { grid-template-columns: 1fr; }
+    .viewer-col { position: static !important; }
+    .controls-cameras { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 760px) {
+    .controls-cameras { grid-template-columns: 1fr; }
+}
+
+/* ── Viewer column (left) ── */
+.viewer-col {
+    position: sticky;
+    top: 16px;
+    min-width: 0;
+    background: var(--bg-card);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.viewer-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    background: var(--bg-deeper);
+    border-bottom: 1px solid var(--border-color);
+    position: relative;
+}
+
+.viewer-tab {
+    padding: 7px 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+}
+
+.viewer-body {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* Tab visibility: show one cam, the other, or both stacked */
+.viewer-body[data-view="1"] #viewer-cam-2 { display: none; }
+.viewer-body[data-view="2"] #viewer-cam-1 { display: none; }
+.viewer-body[data-view="both"] {
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+}
+
+.viewer-cam {
+    background: var(--bg-dark);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.viewer-cam-bar {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 8px 12px;
+}
+
+.viewer-cam-bar .cam-label.cam1 { color: var(--cam1-accent); }
+.viewer-cam-bar .cam-label.cam2 { color: var(--cam2-accent); }
+
+.viewer-cam-model {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+#viewer-cam-1 { border-top: 2px solid var(--cam1-accent); }
+#viewer-cam-2 { border-top: 2px solid var(--cam2-accent); }
 
 /* ── Header ── */
 header {
@@ -89,20 +191,11 @@ header h1 { font-size: 1.6rem; }
     margin-right: 4px;
 }
 
-/* ── Two-column camera grid ── */
-.cameras-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 18px;
-    margin-bottom: 18px;
-    position: relative;
-}
-
-/* ── Instrument-feed "audible" dot (between the two previews) ── */
+/* ── Instrument-feed "audible" dot (right end of the viewer tab bar) ── */
 .audio-dot {
     position: absolute;
-    left: 50%;
-    top: 220px;                 /* aligns with the preview area near the top of the panels */
+    right: 6px;
+    top: 50%;
     transform: translate(-50%, -50%);
     width: 16px;
     height: 16px;
@@ -123,10 +216,23 @@ header h1 { font-size: 1.6rem; }
     border-color: rgba(255, 255, 255, 0.08);
     box-shadow: none;
 }
-@media (max-width: 900px) {
-    /* single-column layout — pin the dot to the gap between the stacked panels */
-    .audio-dot { top: auto; bottom: -9px; left: 50%; }
-}
+
+/* ── Preview flip ──
+   Class-based 180° rotation on the <img>. To keep it in fullscreen we fullscreen
+   the CONTAINER (see enterFullscreen) rather than the img itself — the browser
+   strips the transform off whichever element is *directly* fullscreened, but
+   leaves children (the img) untouched. */
+img.preview-flipped { transform: rotate(180deg); }
+
+.preview-container:fullscreen { display: flex; align-items: center; justify-content: center; background: #000; }
+.preview-container:fullscreen img { width: 100% !important; height: 100% !important; object-fit: contain; }
+.preview-container:fullscreen .preview-fs-btn,
+.preview-container:fullscreen .preview-placeholder { display: none !important; }
+
+.preview-container:-webkit-full-screen { display: flex; align-items: center; justify-content: center; background: #000; }
+.preview-container:-webkit-full-screen img { width: 100% !important; height: 100% !important; object-fit: contain; }
+.preview-container:-webkit-full-screen .preview-fs-btn,
+.preview-container:-webkit-full-screen .preview-placeholder { display: none !important; }
 
 /* ── Camera Panel ── */
 .camera-panel {
@@ -231,9 +337,12 @@ header h1 { font-size: 1.6rem; }
 .preview-btn-row {
     display: flex;
     gap: 8px;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--border-color);
+    padding: 10px 12px;
+    flex-wrap: wrap;
 }
+
+/* Pop-out button sits to the left of the fullscreen button */
+.preview-pop-btn { right: 40px; }
 
 /* ── Control groups inside panels ── */
 .control-group {
@@ -593,90 +702,6 @@ input[type="number"] {
 
 /* ── Utilities ── */
 .hidden { display: none !important; }
-
-/* ── Floating mini player (PiP) ── */
-.pip {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    width: 300px;
-    background: #111;
-    border: 1px solid #333;
-    border-radius: 10px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.7);
-    z-index: 500;
-    overflow: hidden;
-    transition: box-shadow 0.2s;
-    user-select: none;
-}
-
-.pip:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.85); }
-
-.pip-header {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 10px;
-    background: #1a1a1a;
-    border-bottom: 1px solid #2a2a2a;
-    cursor: grab;
-}
-
-.pip-header:active { cursor: grabbing; }
-
-.pip-title {
-    flex: 1;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-
-.pip-btn {
-    background: none;
-    border: none;
-    color: #666;
-    font-size: 0.8rem;
-    cursor: pointer;
-    padding: 2px 5px;
-    border-radius: 3px;
-    line-height: 1;
-    transition: color 0.15s, background 0.15s;
-}
-
-.pip-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
-
-.pip-body { display: block; }
-
-.pip-stream { position: relative; }
-
-.pip-stream img {
-    width: 100%;
-    display: block;
-    aspect-ratio: 16/9;
-    object-fit: cover;
-    background: #000;
-}
-
-.pip-cam-label {
-    position: absolute;
-    top: 6px;
-    left: 8px;
-    font-size: 0.65rem;
-    font-weight: 700;
-    color: #fff;
-    background: rgba(0,0,0,0.55);
-    padding: 2px 6px;
-    border-radius: 3px;
-    letter-spacing: 0.06em;
-    pointer-events: none;
-}
-
-/* ── Responsive ── */
-@media (max-width: 900px) {
-    .cameras-grid { grid-template-columns: 1fr; }
-}
 
 /* ── Lights Section ── */
 .lights-section {
@@ -1420,3 +1445,100 @@ input[type="number"] {
     .mt-row-label { width: 80px; font-size: 0.68rem; }
     .mt-ruler { padding-left: 80px; }
 }
+
+/* ── Rail type selector ── */
+.rail-type-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.rail-type-btn { flex: 1; }
+
+.rail-timer-placeholder {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    padding: 14px 4px;
+    text-align: center;
+}
+
+/* ── Rail position / homing ── */
+.rail-status-line {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    min-height: 1.3em;
+}
+.rail-status-line.ok   { color: var(--success-color); }
+.rail-status-line.busy { color: var(--primary-color); }
+.rail-status-line.warn { color: var(--warning-color); }
+
+.rail-pos-bar {
+    position: relative;
+    height: 18px;
+    background: var(--bg-deeper);
+    border: 1px solid var(--border-color);
+    border-radius: 9px;
+    margin-bottom: 10px;
+    opacity: 0.45;
+}
+.rail-pos-bar.usable { opacity: 1; cursor: pointer; }
+.rail-pos-marker {
+    position: absolute;
+    top: -3px;
+    width: 10px;
+    height: 24px;
+    margin-left: -5px;
+    background: var(--primary-color);
+    border-radius: 4px;
+    transition: left 0.4s linear;
+}
+
+.rail-speed-presets { display: flex; gap: 6px; }
+.rail-preset {
+    flex: 1;
+    padding: 5px 4px;
+    font-size: 0.8rem;
+    background: var(--bg-deeper);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+}
+.rail-preset.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.rail-advanced { margin-top: 10px; }
+.rail-advanced summary {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+.rail-advanced .arduino-rail-settings { margin-top: 8px; }
+
+/* ── Rail v2 (Sep 2026) ── */
+.rail-panel .rail-fw { font-size: 0.65rem; color: var(--text-secondary); font-weight: normal; margin-left: 6px; }
+.rail-track { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.rail-track .rail-pos-bar { flex: 1; margin-bottom: 0; }
+.rail-end-label { font-size: 0.68rem; color: var(--text-secondary); width: 34px; text-align: center; letter-spacing: 0.05em; }
+.rail-row { display: flex; gap: 6px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+.rail-row .btn { flex: 1; }
+.rail-row .rail-swap { flex: 0 0 auto; }
+.rail-swap.active { background: #00838f; color: white; }
+.rail-btn-home { background: #c8a96e; color: white; }
+.rail-btn-end  { background: #4caf50; color: white; }
+.rail-speed { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.rail-speed label { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-secondary); }
+.rail-speed input[type=range] { flex: 1; }
+.rail-speed-presets { display: flex; gap: 6px; align-items: center; }
+.rail-speed-presets .rail-preset small { opacity: 0.7; margin-left: 3px; }
+.rail-hint { font-size: 0.72rem; color: var(--text-secondary); }
+.rail-mode-row .rail-preset { flex: 0 0 auto; padding: 4px 10px; }
+.rail-check { display: flex; align-items: center; gap: 4px; font-size: 0.78rem; color: var(--text-secondary); margin-left: auto; }
+.rail-fit-row input[type=number] { background: var(--bg-deeper); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 4px; padding: 3px 4px; }
+.rail-lock { width: 100%; margin-top: 8px; background: #2e7d32; color: white; }
+.rail-lock.locked { background: #b71c1c; }
+#rail-marks .btn:disabled { opacity: 0.35; cursor: not-allowed; }

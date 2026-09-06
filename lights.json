@@ -5,9 +5,9 @@
     "pin_r": 5,
     "pin_g": 6,
     "pin_b": 7,
-    "r": 0,
-    "g": 135,
-    "b": 219,
+    "r": 255,
+    "g": 255,
+    "b": 255,
     "brightness": 100,
     "effect": null
   },
@@ -18,9 +18,9 @@
     "pin_g": 9,
     "pin_b": 10,
     "r": 255,
-    "g": 102,
-    "b": 0,
-    "brightness": 3,
+    "g": 255,
+    "b": 255,
+    "brightness": 100,
     "effect": null
   }
 ]

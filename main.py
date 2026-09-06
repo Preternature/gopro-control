@@ -5,9 +5,15 @@ Web-based interface for controlling one or two GoPro cameras.
 
 import os
 import json
+import logging
 import time
 import math
 import threading
+
+# Quiet werkzeug's per-request log lines: the UI polls several endpoints every
+# second, and each line goes through colorama, which intermittently dies on
+# Windows console writes (OSError WinError 1 → "--- Logging error ---" spam).
+logging.getLogger('werkzeug').setLevel(logging.ERROR)
 import serial
 import serial.tools.list_ports
 from flask import Flask, render_template, jsonify, request, send_from_directory, Response
@@ -362,9 +368,20 @@ def _master_playback():
                     etype = ev["type"]
                     if etype == "rail":
                         blk = ev["block"]
-                        arduino.send(f"S{int(blk.get('speed',91))},{int(blk['duration']*1000)}")
-                        time.sleep(0.05)
-                        arduino.send("U" if blk.get("direction","forward")=="forward" else "D")
+                        if blk.get("kind", "jog") == "goto":
+                            # fenced absolute move: to home / end / a percent, either at a
+                            # step delay or fitted so it takes exactly the block's duration
+                            tgt = blk.get("target", "end")
+                            if tgt not in ("home", "end"):
+                                tgt = {"percent": float(tgt)}
+                            if blk.get("fit", True):
+                                arduino.rail_go(tgt, seconds=float(blk["duration"]))
+                            else:
+                                arduino.rail_go(tgt, speed=int(blk.get("speed", 60)))
+                        else:
+                            arduino.send(f"S{int(blk.get('speed',60))},{int(blk['duration']*1000)}")
+                            time.sleep(0.05)
+                            arduino.send("U" if blk.get("direction","forward")=="forward" else "D")
                     elif etype == "camera":
                         threading.Thread(target=_fire_camera_action,
                                          args=(ev["cam_id"], ev["block"].get("action", "")),
@@ -428,8 +445,12 @@ def arduino_rail_settings():
     data = request.json or {}
     if 'speed' in data:
         arduino.rail_set_speed(int(data['speed']))
-    if 'duration' in data:
-        arduino.rail_set_duration(int(data['duration']))
+    if 'mode' in data:
+        arduino.rail_set_mode(str(data['mode']))
+    if 'scurve' in data:
+        arduino.rail_set_scurve(bool(data['scurve']))
+    if 'mirror' in data:
+        arduino.rail_set_mirror(bool(data['mirror']))
     return jsonify({"success": True, **arduino.get_status()})
 
 @app.route('/api/arduino/rail/away', methods=['POST'])
@@ -443,6 +464,115 @@ def arduino_rail_toward():
 @app.route('/api/arduino/rail/stop', methods=['POST'])
 def arduino_rail_stop():
     return jsonify({"success": arduino.rail_stop()})
+
+@app.route('/api/arduino/rail/home', methods=['POST'])
+def arduino_rail_home():
+    full = bool((request.json or {}).get('full', True))
+    return jsonify({"success": arduino.rail_home(full)})
+
+@app.route('/api/arduino/rail/goto', methods=['POST'])
+def arduino_rail_goto():
+    data = request.json or {}
+    rail = arduino.rail
+    if 'percent' in data:
+        if not rail["homed"] or rail["length"] <= 0:
+            return jsonify({"success": False, "error": "Rail not homed — run Find Ends first"})
+        steps = int(round(max(0.0, min(100.0, float(data['percent']))) / 100.0 * rail["length"]))
+    elif 'steps' in data:
+        steps = int(data['steps'])
+    else:
+        return jsonify({"success": False, "error": "Need 'percent' or 'steps'"})
+    return jsonify({"success": arduino.rail_goto(steps)})
+
+@app.route('/api/arduino/rail/status')
+def arduino_rail_status():
+    return jsonify(arduino.rail_status())
+
+@app.route('/api/arduino/tmc')
+def arduino_tmc_status():
+    """Raw TMC2209 driver report — spread flag, current, temp warnings."""
+    reply = arduino.query("TMC?", expect="TMC:")
+    return jsonify({"success": reply is not None, "tmc": reply})
+
+@app.route('/api/arduino/rail/sg')
+def arduino_rail_sg():
+    """Live StallGuard load value (lower = motor working harder)."""
+    reply = arduino.query("SG?", expect="SG:")
+    if reply:
+        try:
+            return jsonify({"success": True, "sg": int(reply[3:])})
+        except ValueError:
+            pass
+    return jsonify({"success": False, "sg": None})
+
+@app.route('/api/arduino/cmd', methods=['POST'])
+def arduino_raw_cmd():
+    """Raw serial passthrough for diagnostics/experiments.
+    {"cmd": "RAMP300", "expect": "OK:RAMP"} — with expect, waits for the reply."""
+    data = request.json or {}
+    cmd = str(data.get('cmd', '')).strip()
+    if not cmd:
+        return jsonify({"success": False, "error": "no cmd"})
+    if 'expect' in data:
+        reply = arduino.query(cmd, timeout=float(data.get('timeout', 1.0)),
+                              expect=str(data['expect']))
+        return jsonify({"success": reply is not None, "reply": reply})
+    return jsonify({"success": arduino.send(cmd)})
+
+@app.route('/api/arduino/rail/mode', methods=['POST'])
+def arduino_rail_mode():
+    mode = str((request.json or {}).get('mode', 'auto')).upper()
+    if mode not in ('AUTO', 'STEALTH', 'SPREAD'):
+        return jsonify({"success": False, "error": "mode must be auto/stealth/spread"})
+    return jsonify({"success": arduino.rail_set_mode(mode)})
+
+# ── Rail v2 (manual marks, presets, fenced moves) ───────────────────────────
+
+@app.route('/api/arduino/rail/mark/home', methods=['POST'])
+def arduino_rail_mark_home():
+    return jsonify(arduino.rail_mark_home())
+
+@app.route('/api/arduino/rail/mark/far', methods=['POST'])
+def arduino_rail_mark_far():
+    return jsonify(arduino.rail_mark_far())
+
+@app.route('/api/arduino/rail/lock', methods=['POST'])
+def arduino_rail_lock():
+    locked = bool((request.json or {}).get('locked', True))
+    arduino.rail_set_lock(locked)
+    return jsonify({"success": True, "locked": locked})
+
+@app.route('/api/arduino/rail/preset', methods=['POST'])
+def arduino_rail_preset():
+    pr = arduino.rail_preset(str((request.json or {}).get('name', '')))
+    return jsonify({"success": pr is not None, "preset": pr})
+
+@app.route('/api/arduino/rail/go', methods=['POST'])
+def arduino_rail_go():
+    """{"target": "home"|"end"|steps|{"percent": p}, "speed": delay?, "seconds": s?}"""
+    data = request.json or {}
+    if 'target' not in data:
+        return jsonify({"success": False, "error": "need target"})
+    speed = data.get('speed')
+    seconds = data.get('seconds')
+    return jsonify(arduino.rail_go(data['target'],
+                                   speed=None if speed is None else int(speed),
+                                   seconds=None if seconds is None else float(seconds)))
+
+@app.route('/api/arduino/rail/jog', methods=['POST'])
+def arduino_rail_jog():
+    """{"dir": "home"|"end"}  (home = toward the motor / U, end = toward the far mark / D)"""
+    d = str((request.json or {}).get('dir', '')).lower()
+    fw = {"home": "U", "end": "D", "u": "U", "d": "D"}.get(d)
+    if not fw:
+        return jsonify({"success": False, "error": "dir must be home or end"})
+    return jsonify({"success": arduino.rail_jog(fw)})
+
+@app.route('/api/arduino/rail/fit', methods=['GET'])
+def arduino_rail_fit():
+    """Preview the step delay a move would need: ?steps=N&seconds=S"""
+    steps = int(request.args.get('steps', 0)); seconds = float(request.args.get('seconds', 0))
+    return jsonify(arduino.delay_for_seconds(steps, seconds))
 
 # Gimbal
 @app.route('/api/arduino/gimbal/base', methods=['POST'])
@@ -1079,6 +1209,42 @@ def audio_level():
     """Live instrument input level — drives the 'audible' dot between previews."""
     return jsonify(audio_recorder.level())
 
+# Sentinel "cam" key for standalone audio capture (no camera involved). Kept out
+# of the 1/2 integer namespace so it reference-counts independently of the cameras:
+# you can record audio alone, or have it join/outlive a rolling camera session.
+MANUAL_AUDIO_KEY = "manual"
+
+@app.route('/api/audio/start', methods=['POST'])
+def audio_start():
+    """Start (or join) the shared audio capture WITHOUT a camera."""
+    try:
+        audio = audio_recorder.start_session(MANUAL_AUDIO_KEY)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    socketio.emit('audio_status', {'cam_id': None, 'event': 'start', **audio})
+    ok = bool(audio.get('started') or audio.get('joined'))
+    if audio.get('error'):
+        print(f"[audio] manual start error: {audio['error']}")
+    return jsonify({"success": ok, "audio": audio})
+
+@app.route('/api/audio/stop', methods=['POST'])
+def audio_stop():
+    """Stop the standalone audio capture. If cameras are still recording, the
+    capture keeps running (reference-counted) and only this hold is released."""
+    try:
+        audio = audio_recorder.stop_session(MANUAL_AUDIO_KEY)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    if audio.get('stopped') and audio.get('files'):
+        names = [os.path.basename(f) for f in audio['files']]
+        print(f"[audio] saved {names} ({audio.get('duration')}s @ {audio.get('rate')}Hz)")
+        socketio.emit('audio_saved', {'cam_id': None, 'files': names,
+                                      'rate': audio.get('rate'),
+                                      'duration': audio.get('duration')})
+    elif audio.get('error') and audio.get('stopped'):
+        socketio.emit('audio_saved', {'cam_id': None, 'files': [], 'error': audio['error']})
+    return jsonify({"success": True, "audio": audio})
+
 @app.route('/api/audio/devices')
 def audio_devices():
     """List input devices, flagging the one the recorder will use."""
@@ -1407,4 +1573,8 @@ if __name__ == '__main__':
     print("Then open http://localhost:5000 in your browser")
     print("=" * 60)
 
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
+    # use_reloader=False: the debug reloader restarts the server whenever a
+    # source file changes, which drops the Arduino/GoPro connections mid-session
+    # (and a failed restart leaves the port dead while the page looks alive).
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True,
+                 use_reloader=False, allow_unsafe_werkzeug=True)

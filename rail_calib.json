@@ -1,0 +1,33 @@
+{
+  "active": "rotor",
+  "rails": {
+    "timer": {
+      "length": 47463,
+      "hdir": "U",
+      "hspd": 150,
+      "hmax": 200000,
+      "hcur": 0,
+      "cur": 1100,
+      "ramp": 1000,
+      "mode": "STEALTH",
+      "speed": 60,
+      "sgt": 80,
+      "scurve": true
+    },
+    "rotor": {
+      "length": 110163,
+      "hdir": "U",
+      "hspd": 150,
+      "hmax": 60000,
+      "hcur": 600,
+      "cur": 1200,
+      "ramp": 2000,
+      "mode": "SPREAD",
+      "speed": 0,
+      "sgt": 80,
+      "scurve": true
+    }
+  },
+  "mirror": true,
+  "locked": true
+}
